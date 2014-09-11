@@ -21,3 +21,11 @@
 *.i*86
 *.x86_64
 *.hex
+
+# Swap files
+*~
+*.swp
+
+# Archives, zip files
+*.zip
+*.tar*
