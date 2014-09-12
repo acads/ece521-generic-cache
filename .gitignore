@@ -25,6 +25,7 @@
 # Swap files
 *~
 *.swp
+*.swo
 
 # Archives, zip files
 *.zip
