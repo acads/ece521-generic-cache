@@ -23,7 +23,6 @@
 /* Standard typedefs */
 typedef unsigned char uchar;
 typedef unsigned char boolean;
-typedef unsigned long long uint16_t;
 
 /* Cache statistics data structure */
 typedef struct cache_stats__ {
@@ -34,20 +33,20 @@ typedef struct cache_stats__ {
     uint32_t        num_read_misses;        /* # of read misses         */
     uint32_t        num_write_misses;       /* # of write misses        */
     uint32_t        num_blk_mem_traffic;    /* # of blks transferred    */
-    cache_generic_t *cache;                 /* ptr to parent cache      */
+    void            *cache;                 /* ptr to parent cache      */
 } cache_stats_t;
 
 /* Generic cache data structure */
 typedef struct cache_generic__ {
-    uchar           name[CACHE_NAME_LEN];   /* name - L1, L2..          */
+    char            name[CACHE_NAME_LEN];   /* name - L1, L2..          */
     uint8_t         level;                  /* 1, 2, 3 ..               */
     uint32_t        blk_size;               /* cache block size         */
     uint32_t        size;                   /* total cache size         */
     uint8_t         repl_plcy;              /* replacement policy       */
     uint8_t         write_plcy;             /* write policy             */
     cache_stats_t   stats;                  /* cache statistics         */
-    cache_generic_t *next_cache;            /* next higher level cache  */
-    cache_generic_t *prev_cache;            /* prev lower level cache   */
+    struct cache_generic__ *next_cache;     /* next higher level cache  */
+    struct cache_generic__ *prev_cache;     /* prev lower level cache   */
 } cache_generic_t;
 
 

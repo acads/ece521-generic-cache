@@ -30,3 +30,7 @@
 # Archives, zip files
 *.zip
 *.tar*
+
+# Ignore cscope and tags files
+cscope*
+tags

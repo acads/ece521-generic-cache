@@ -48,6 +48,17 @@ exit:
 
 
 int
-main(int arcc, char **argv)
+main(int argc, char **argv)
 {
+
+    if (FALSE == cache_validate_input(argc, argv)) {
+        printf("Error: Invalid input(s). See usage for help.\n");
+        cache_print_usage(argv[0]);
+        goto exit_error;
+    }
+
+    return 0;
+
+exit_error:
+    return -1;
 }
