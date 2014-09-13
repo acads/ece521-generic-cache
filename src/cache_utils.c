@@ -12,12 +12,31 @@
 #include "cache.h"
 #include "cache_utils.h"
 
-/* Util macros */
-
 
 /* Util functions */
+static inline unsigned
+util_get_msb_mask(uint32_t num_msb_bits)
+{
+    return ((~0U) << (32 - num_msb_bits));
+}
+
+
+static inline unsigned
+util_get_lsb_mask(uint32_t num_lsb_bits)
+{
+    return ((~0U) >> (32 - num_lsb_bits));
+}
+
+
+static inline unsigned
+util_get_field_mask(uint32_t start_bit, uint32_t end_bit)
+{
+    return (util_get_lsb_mask(end_bit + 1) & (~util_get_lsb_mask(start_bit)));
+}
+
+
 boolean
-cache_validate_input(int nargs, char **args)
+cache_util_validate_input(int nargs, char **args)
 {
     int blk_size = 0;
     int plcy = 0;
@@ -62,7 +81,7 @@ cache_validate_input(int nargs, char **args)
 
 
 void
-cache_print_usage(const char *prog)
+cache_util_print_usage(const char *prog)
 {
     printf("Usage: %s <block-size> <cache-size> <set-assoc> "   \
             "<replacement-policy> <write-policy> <trace-file>\n", prog);
@@ -78,9 +97,37 @@ cache_print_usage(const char *prog)
     return;
 }
 
+
+void
+cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr, 
+        cache_line_t *line)
+{
+    uint32_t tag_mask = 0;
+    uint32_t index_mask = 0;
+    uint32_t offset_mask = 0;
+
+    if ((!line) || (!tagstore)) {
+        cache_assert(0);
+        goto exit;
+    }
+
+    tag_mask = util_get_msb_mask(tagstore->num_tag_bits);
+    offset_mask = util_get_lsb_mask(tagstore->num_offset_bits);
+    index_mask = util_get_field_mask(tagstore->num_tag_bits, 
+            (tagstore->num_tag_bits + tagstore->num_index_bits - 1));
+
+    line->tag = ((addr & tag_mask) >> (32 - tagstore->num_tag_bits));
+    line->index = ((addr & index_mask) >> tagstore->num_offset_bits);
+    line->offset = (addr & offset_mask);
+
+exit:
+    return;
+}
+
+
 #ifdef DBG_ON
 void 
-cache_print(cache_generic_t *pcache)
+cache_util_print(cache_generic_t *pcache)
 {
     if (NULL == pcache) {
         cache_assert(0);
@@ -96,6 +143,8 @@ cache_print(cache_generic_t *pcache)
     printf("Total Size: %u\n", pcache->size);
     printf("Replacement Policy: %s\n", pcache->repl_plcy ? "LRU" : "LFU");
     printf("Write Policy: %s\n", pcache->write_plcy ? "WBWA" : "WTNA");
+    printf("Statistics:\n");
+    cache_util_print_stats((cache_stats_t *) &(pcache->stats), FALSE);
 
 exit:
     return;
@@ -103,7 +152,7 @@ exit:
 
 
 void
-cache_print_stats(cache_stats_t *pstats, boolean detail)
+cache_util_print_stats(cache_stats_t *pstats, boolean detail)
 {
     char    *spacing = "    ";
 
@@ -139,5 +188,31 @@ cache_print_stats(cache_stats_t *pstats, boolean detail)
 exit:
     return;
 }
-
 #endif /* DBG_ON */
+
+
+boolean
+util_is_power_of_2(uint32_t num)
+{
+    if (0 == num)
+        return FALSE;
+
+    if (num & (num - 1))
+        return FALSE;
+
+    return TRUE;
+}
+
+
+uint32_t
+util_log_base_2(uint32_t num)
+{
+    uint32_t result = 0;
+    uint32_t tmp = 0;
+
+    tmp = num;
+    while (tmp >>= 1)
+        result += 1;
+
+    return result;
+}
