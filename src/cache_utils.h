@@ -17,8 +17,10 @@
 #define IS_MEM_REF_READ(REF)    (MEM_REF_TYPE_READ == REF->ref_type)
 #define IS_MEM_REF_WRITE(REF)   (MEM_REF_TYPE_WRITE == REF->ref_type)
 
+#define CACHE_GET_REPLACEMENT_POLICY(CACHE)     (CACHE->repl_plcy)
+
+#define dprint(str, ...)     printf(str, ##__VA_ARGS__)
 #ifdef DBG_ON
-#define dprint(str, ...)
 #define dprint_info(str, ...)               \
     printf("cache_info %s %u>> " str, __func__, __LINE__, ##__VA_ARGS__)
 #define dprint_warn(str, ...)               \
@@ -28,7 +30,6 @@
     printf("cache_err: %s %s %u# " str,     \
             __FILE__, __func__, __LINE__, ##__VA_ARGS__)
 #else
-#define dprint(str, ...)     printf(str, ##__VA_ARGS__)
 #define dprint_info(str, ...)
 #define dprint_warn(str, ...)
 #define dprint_err(str, ...)
@@ -42,18 +43,9 @@
 
 
 /* Function declarations */
-inline void
-cache_util_increment_reads(cache_generic_t *cache);
-inline void
-cache_util_increment_read_hits(cache_generic_t *cache);
-inline void
-cache_util_increment_read_miss(cache_generic_t *cache);
-inline void
-cache_util_increment_writes(cache_generic_t *cache);
-inline void
-cache_util_increment_write_hits(cache_generic_t *cache);
-inline void
-cache_util_increment_write_miss(cache_generic_t *cache);
+inline boolean
+cache_util_is_block_dirty(cache_tagstore_t *tagstore, cache_line_t *line, 
+        int32_t block_id);
 boolean
 cache_util_validate_input(int nargs, char **args);
 void

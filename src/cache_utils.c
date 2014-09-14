@@ -34,6 +34,15 @@ util_get_field_mask(uint32_t start_bit, uint32_t end_bit)
     return (util_get_lsb_mask(end_bit + 1) & (~util_get_lsb_mask(start_bit)));
 }
 
+inline boolean
+cache_util_is_block_dirty(cache_tagstore_t *tagstore, cache_line_t *line, 
+        int32_t block_id)
+{
+    return 
+        (tagstore->tag_data[((line->index * tagstore->num_blocks_per_set) + \
+                             block_id)].dirty);
+}
+
 
 boolean
 cache_util_validate_input(int nargs, char **args)
@@ -113,8 +122,10 @@ cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr,
 
     tag_mask = util_get_msb_mask(tagstore->num_tag_bits);
     offset_mask = util_get_lsb_mask(tagstore->num_offset_bits);
-    index_mask = util_get_field_mask(tagstore->num_tag_bits, 
-            (tagstore->num_tag_bits + tagstore->num_index_bits - 1));
+    index_mask = 
+        util_get_field_mask(tagstore->num_offset_bits, 
+                (tagstore->num_offset_bits + 
+                    tagstore->num_index_bits) - 1); 
 
     line->tag = ((addr & tag_mask) >> (32 - tagstore->num_tag_bits));
     line->index = ((addr & index_mask) >> tagstore->num_offset_bits);
@@ -139,14 +150,15 @@ cache_util_print(cache_generic_t *pcache)
 
     printf("\n");
     printf("Cache Details\n");
-    printf("----- -------\n");
-    printf("Name: %s\n", pcache->name);
-    printf("Level: %u\n", pcache->level);
-    printf("Block Size: %u\n", pcache->blk_size);
-    printf("Total Size: %u\n", pcache->size);
-    printf("Replacement Policy: %s\n", pcache->repl_plcy ? "LRU" : "LFU");
-    printf("Write Policy: %s\n", pcache->write_plcy ? "WBWA" : "WTNA");
-    printf("Statistics:\n");
+    printf("-------------\n");
+    printf("Name               : %s\n", pcache->name);
+    printf("Level              : %u\n", pcache->level);
+    printf("Block Size         : %u\n", pcache->blk_size);
+    printf("Total Size         : %u\n", pcache->size);
+    printf("Replacement Policy : %s\n", pcache->repl_plcy ? "LRU" : "LFU");
+    printf("Write Policy       : %s\n", pcache->write_plcy ? "WBWA" : "WTNA");
+    printf("Statistics\n");
+    dprint("---------\n");
     cache_util_print_stats((cache_stats_t *) &(pcache->stats), FALSE);
 
 exit:
@@ -174,15 +186,16 @@ cache_util_print_stats(cache_stats_t *pstats, boolean detail)
         printf("\n");
         spacing = "";
         printf("Cache Statistics\n");
-        printf("----- ----------\n");
+        printf("----------------\n");
         printf("Name: %s\n", cache->name);
     }
 
-    printf("%sNum Reads: %u\n", spacing, pstats->num_reads);
-    printf("%sNum Read Misses: %u\n", spacing, pstats->num_read_misses);
-    printf("%sNum Writes: %u\n", spacing, pstats->num_writes);
-    printf("%sNum Write Misses: %u\n", spacing, pstats->num_write_misses);
-    printf("%sMemory Traffic: %u blocks\n", spacing, 
+    printf("%s# reads            : %u\n", spacing, pstats->num_reads);
+    dprint("%s# read hits        : %u\n", spacing, pstats->num_read_hits);
+    printf("%s# read misses      : %u\n", spacing, pstats->num_read_misses);
+    printf("%s# writes           : %u\n", spacing, pstats->num_writes);
+    printf("%s# write misses     : %u\n", spacing, pstats->num_write_misses);
+    printf("%sMemory traffic     : %u blocks\n", spacing, 
             pstats->num_blk_mem_traffic);
 
     if (TRUE == detail) 
@@ -201,10 +214,11 @@ cache_util_print_tagstore(cache_generic_t *cache)
 
     dprint("Cache Tag Store Statistics\n");
     dprint("--------------------------\n");
-    dprint("# of sets: %u\n", cache->tagstore->num_sets);
-    dprint("# of blocks: %u\n", cache->tagstore->num_blocks);
-    dprint("# of blocks/set: %u\n", cache->tagstore->num_blocks_per_set);
-    dprint("# of tag index block bits: %u %u %U\n", 
+    dprint("# of sets                 : %u\n", cache->tagstore->num_sets);
+    dprint("# of blocks               : %u\n", cache->tagstore->num_blocks);
+    dprint("# of blocks/set           : %u\n", 
+            cache->tagstore->num_blocks_per_set);
+    dprint("# of tag index block bits : %u %u %u\n", 
             cache->tagstore->num_tag_bits, cache->tagstore->num_index_bits, 
             cache->tagstore->num_offset_bits);
 

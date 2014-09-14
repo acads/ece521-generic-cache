@@ -54,7 +54,7 @@ typedef struct cache_tag_data__ {
     uint32_t        index;                  /* index of this tag        */
     uint32_t        blk_id;                 /* id of this block         */
 #endif
-    uint32_t        age;                    /* age of this block        */
+    uint64_t        age;                    /* age of this block        */
     uint8_t         valid;                  /* valid bit of the block   */
     uint8_t         dirty;                  /* dirty bit of the block   */
 } cache_tag_data_t;
@@ -120,9 +120,19 @@ cache_handle_write_request(cache_generic_t *cache, mem_ref_t *mem_ref,
         cache_line_t *line);
 boolean
 cache_is_any_block_valid(cache_tagstore_t *tagstore, cache_line_t *line);
-cache_rv
+int32_t
+cache_get_first_invalid_block(cache_tagstore_t *tagstore, cache_line_t *line);
+int32_t
 cache_does_tag_match(cache_tagstore_t *tagstore, cache_line_t *line);
+int32_t
+cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
+        cache_line_t *line);
+int32_t
+cache_get_lfu_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
+    cache_line_t *line);
+int32_t
+cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line);
 void
-cache_add_tag_to_block(cache_tagstore_t *tagstore, mem_ref_t *mem_ref,
-        cache_line_t *line, uint32_t block_id);
+cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, uint32_t block_id);
+
 #endif /* CACHE_H_ */

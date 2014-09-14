@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <sys/time.h>
 #include "cache.h"
 #include "cache_utils.h"
 
@@ -182,7 +183,128 @@ exit:
 }
 
 
-cache_rv
+/*************************************************************************** 
+ * Name:    cache_get_lru_block
+ *
+ * Desc:    Returns the LRU block ID for the given set.
+ *
+ * Params:
+ *  tagstore    ptr to the cache tagstore
+ *  mref        ptr to the incoming memory reference
+ *  line        ptr to the decoded cache line
+ *
+ * Returns: int32_t
+ *          ID of the frist valid LRU block for eviction
+ *          CACHE_RV_ERR on error
+ **************************************************************************/
+int32_t
+cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref, 
+        cache_line_t *line)
+{
+    int32_t             block_id = 0;
+    int32_t             min_block_id = 0;
+    uint32_t            num_blocks = 0;
+    uint64_t            min_age = 0;
+    cache_tag_data_t    *tag_data = NULL;
+
+    if ((!tagstore) || (!mref) || (!line)) {
+        cache_assert(0);
+        goto error_exit;
+    }
+
+    num_blocks = tagstore->num_blocks_per_set;
+    tag_data = &tagstore->tag_data[line->index];
+
+    for (block_id = 0; block_id < num_blocks; ++block_id) {
+        if ((tag_data[block_id].valid) && tag_data[block_id].age < min_age) {
+            min_block_id = block_id;
+            min_age = tag_data[block_id].age;
+        }
+    }
+    
+    return min_block_id;
+
+error_exit:
+    return CACHE_RV_ERR;
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_get_lfu_block
+ *
+ * Desc:    Returns the LFU block ID for the given set.
+ *
+ * Params:
+ *  tagstore    ptr to the cache tagstore
+ *  mref        ptr to the incoming memory reference
+ *  line        ptr to the decoded cache line
+ *
+ * Returns: int32_t
+ *          ID of the frist valid LFU block for eviction
+ *          CACHE_RV_ERR on error
+ **************************************************************************/
+int32_t
+cache_get_lfu_block(cache_tagstore_t *tagstore, mem_ref_t *mref, 
+        cache_line_t *line)
+{
+    /* dan_todo: code for LFU policy. */
+    return CACHE_RV_ERR;
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_get_first_invalid_block
+ *
+ * Desc:    Returns the first free (invalid) block for a set.
+ *
+ * Params:
+ *  tagstore    ptr to the cache tagstore
+ *  line        ptr to the decoded cache line
+ *
+ * Returns: int32_t
+ *          ID of the frist available blocl
+ *          CAHCE_RV_ERR if not such block is available
+ **************************************************************************/
+int32_t
+cache_get_first_invalid_block(cache_tagstore_t *tagstore, cache_line_t *line)
+{
+    int32_t             block_id = 0;
+    uint32_t            num_blocks = 0;
+    cache_tag_data_t    *tag_data = NULL;
+
+    if ((!tagstore) || (!line)) {
+        cache_assert(0);
+        goto error_exit;
+    }
+
+    num_blocks = tagstore->num_blocks_per_set;
+    tag_data = &tagstore->tag_data[line->index];
+
+    for (block_id = 0; block_id < num_blocks; ++block_id) {
+        if (!tag_data[block_id].valid)
+            return block_id;
+    }
+
+error_exit:
+    return CACHE_RV_ERR;
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_does_tag_match
+ *
+ * Desc:    Compares the incoming tag in all the blocks representing the 
+ *          index the tag belongs too.  
+ *
+ * Params:
+ *  tagstore    ptr to the cache tagstore
+ *  line        ptr to the decoded cache line
+ *
+ * Returns: int32_t 
+ *  ID of the block on a match is found
+ *  CACHE_RV_ERR if no match is found
+ **************************************************************************/
+int32_t
 cache_does_tag_match(cache_tagstore_t *tagstore, cache_line_t *line)
 {
     uint32_t            index = 0;
@@ -217,6 +339,103 @@ error_exit:
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_handle_dirty_tag_evicts 
+ *
+ * Desc:    Handles dirty tag evicts from the cache. If the write policy is
+ *          set to write back, writes the block to next level of memory (yet
+ *          to be implemented) .
+ *
+ * Params:
+ *  tagstore    ptr to the cache tagstore
+ *  block_id    ID of the block within the set which has to be evicted
+ *
+ * Returns: Nothing
+ **************************************************************************/
+void
+cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, uint32_t block_id)
+{
+    /* dan_todo: add code for handling dirty evicts. */
+    return;
+}
+
+/*************************************************************************** 
+ * Name:    cache_evict_tag
+ *
+ * Desc:    Responsible for tag eviction (based on the replacement poliy set) 
+ *          and to write back the block, if the selected eviction block
+ *          happens to be dirty.
+ *
+ * Params:
+ *  tagstore    ptr to the cache tagstore
+ *  line        ptr to the decoded cache line
+ *
+ * Returns: int32_t 
+ *  ID of the block on a match is found
+ *  CACHE_RV_ERR if no match is found
+ **************************************************************************/
+int32_t
+cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
+{
+    int32_t             block_id = 0;
+    cache_tagstore_t    *tagstore = NULL;
+
+    switch (CACHE_GET_REPLACEMENT_POLICY(cache)) {
+        case CACHE_REPL_PLCY_LRU:
+            block_id = cache_get_lru_block(tagstore, mref, line);
+            if (CACHE_RV_ERR == block_id)
+                goto error_exit;
+            break;
+
+        case CACHE_REPL_PLCY_LFU:
+            block_id = cache_get_lfu_block(tagstore, mref, line);
+            if (CACHE_RV_ERR == block_id)
+                goto error_exit;
+            break;
+
+        default:
+            cache_assert(0);
+            goto error_exit;
+    }
+    dprint_info("selected index %u , block %d for eviction\n", 
+            line->index, block_id);
+    
+    /* If the block to be evicted is dirty, write it back if required. */
+    if (cache_util_is_block_dirty(tagstore, line, block_id)) {
+        dprint_info("selected a dirty block to evict in index %u, block %d\n",
+                line->index, block_id);
+        cache_handle_dirty_tag_evicts(tagstore, block_id);
+    }
+
+    return block_id;
+
+error_exit:
+    return CACHE_RV_ERR;
+}
+
+/*************************************************************************** 
+ * Name:    cache_evict_and_add_tag 
+ *
+ * Desc:    Core processing routine. It does one (and only one) of the 
+ *          following for every memory reference:
+ *          1. If the tag is already present, we are done here. Might have to
+ *              write thru for a write request if the write policy is set to 
+ *              WTNA.
+ *          2. If a free block is available, place the tag in that block. 
+ *          3. Evict a block (based on the eviction policy set), do a write
+ *              back (if evicted block is dirty) and place the incoming tag
+ *              on the block.
+ *
+ *          For all three operations above, we need to update read/write, 
+ *          miss/hit counters, valid, dirty (for writes) and age for the block.
+ *
+ * Params:
+ *  cache       ptr to cache
+ *  mem_ref     ptr to the memory reference (type and address)
+ *  line        ptr to the decoded cache line
+ *
+ * Returns: Nothing.
+ **************************************************************************/
 void
 cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref, 
         cache_line_t *line)
@@ -224,8 +443,15 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
     uint32_t            block_id = 0;
     uint8_t             read_flag = FALSE;
     uint32_t            *tags = NULL;
+    uint64_t            curr_age;
     cache_tag_data_t    *tag_data = NULL;
     cache_tagstore_t    *tagstore = NULL;
+    struct timeval      curr_time;
+
+    /* Fetch the current time to be used for tag age. */
+    memset(&curr_time, 0, sizeof(curr_time));
+    gettimeofday(&curr_time, NULL);
+    curr_age = ((curr_time.tv_sec * 1000000) + curr_time.tv_usec);
 
     tagstore = cache->tagstore;
     tags = &tagstore->tags[line->index];
@@ -238,12 +464,32 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         cache->stats.num_writes += 1;
 
 
-    if (FALSE == cache_is_any_block_valid(tagstore, line)) {
-        /* All blocks are invalid, place the tag in the 1st block. */
-        block_id = 0;
-        tags[block_id] = line->tag;
+    if (CACHE_RV_ERR != (block_id = cache_does_tag_match(tagstore, line))) {
+        /* 
+         * Tag is already present. Just update the tag_data and write thru 
+         * if required.
+         */
         tag_data[block_id].valid = 1;
-        tag_data[block_id].age += 1;
+        tag_data[block_id].age = curr_age;
+        if (read_flag) {
+            cache->stats.num_read_hits += 1;
+        } else {
+            cache->stats.num_write_hits += 1;
+            tag_data[block_id].dirty = 1;
+        }
+        dprint_info("tag 0x%x already present in index %u, block %u\n",
+                line->tag, line->index, block_id);
+    } else if (CACHE_RV_ERR != 
+            (block_id = cache_get_first_invalid_block(tagstore, line))) {
+        /* 
+         * All blocks are invalid. This usually happens when the cache is
+         * being used for the first time. Place the tag in the 1st available 
+         * block. 
+         */
+        tags[block_id] = line->tag;
+
+        tag_data[block_id].valid = 1;
+        tag_data[block_id].age = curr_age;
         if (read_flag) {
             cache->stats.num_read_misses += 1;
         } else {
@@ -252,27 +498,26 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         }
         dprint_info("tag 0x%x added to index %u, block %u\n", 
                 line->tag, line->index, block_id);
-    } else if (CACHE_RV_ERR != 
-            (block_id = cache_does_tag_match(tagstore, line))) {
-        /* 
-         * Tag is already present. Just update the tag_data and write thru 
-         * if required.
+    } else {
+        /*
+         * Neither a tag match was found nor a free block to place the tag.
+         * Evict an existing tag based on the replacement policy set and place
+         * the new tag on that block.
          */
+        block_id = cache_evict_tag(cache, mem_ref, line);
+        tags[block_id] = line->tag;
+
         tag_data[block_id].valid = 1;
-        tag_data[block_id].age += 1;
-        if (!read_flag) {
-            cache->stats.num_writes += 1;
+        tag_data[block_id].age = curr_age;
+        if (read_flag) {
+            cache->stats.num_read_misses += 1;
+        } else {
+            cache->stats.num_write_misses += 1;
             tag_data[block_id].dirty = 1;
         }
-        dprint_info("tag 0x%x already present in index %u, block %u\n",
+        dprint_info("tag 0x%x added to index %u, block %d after eviction\n",
                 line->tag, line->index, block_id);
     }
-#if 0
-    } else if () {
-    } else if () {
-    } else {
-    }
-#endif
 
     return;
 }
@@ -392,15 +637,26 @@ main(int argc, char **argv)
         goto error_exit;
     }
 
+#if 0
+    {
+        uint32_t addr = 0x4002e850;
+        cache_line_t tmp;
+
+        cache_util_decode_mem_addr(g_cache.tagstore, addr, &tmp);
+        dprint("addr 0x%x, tag 0x%x, index 0x%u, offset %u\n",
+                addr, tmp.tag, tmp.index, tmp.offset);
+        return 0;
+    }
+#endif
+
     /* 
      * Read the trace file, fetch the address and process the memory access
      * request for every request in the trace file. 
      */
     while (fscanf(trace_fptr, "%c %x%c", 
                 &(mem_ref.ref_type), &(mem_ref.ref_addr), &newline) != EOF) {
-        dprint_info("ref_type %c, ref_addr 0x%x\n", 
+        dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);
-        dprint("%c %x\n", mem_ref.ref_type, mem_ref.ref_addr);
         if (!cache_handle_memory_request(&g_cache, &mem_ref)) {
             dprint_err("Error: Unable to handle memory reference request for "\
                     "type %c, addr 0x%x.\n", 
