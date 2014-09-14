@@ -16,7 +16,8 @@ cache_generic_t     g_cache;        /* generic cache, l1 as of now  */
 cache_tagstore_t    g_cache_ts;     /* gemeroc cache tagstore       */
 
 void
-cache_init(cache_generic_t *pcache, const char *name, uint8_t level)
+cache_init(cache_generic_t *pcache, const char *name, 
+        const char *trace_file, uint8_t level)
 {
     if ((NULL == pcache) || (NULL == name)) {
         cache_assert(0);
@@ -25,10 +26,13 @@ cache_init(cache_generic_t *pcache, const char *name, uint8_t level)
 
     memset(pcache, 0, sizeof *pcache);
     pcache->level = level;
-    strncpy(pcache->name, name, CACHE_NAME_LEN - 1);
+    strncpy(pcache->name, name, (CACHE_NAME_LEN - 1));
+    strncpy(pcache->trace_file, trace_file, (CACHE_TRACE_FILE_LEN -1));
     pcache->stats.cache = pcache;
     pcache->next_cache = NULL;
     pcache->prev_cache = NULL;
+    dprint("lol %s\n", pcache->trace_file);
+    dprint("lol1 %s\n", trace_file);
 
 exit:
     return;
@@ -148,6 +152,70 @@ cache_tagstore_cleanup(cache_generic_t *cache, cache_tagstore_t *tagstore)
     free(tagstore->tag_data);
 
 exit:
+    return;
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_print_sim_config 
+ *
+ * Desc:    Prints the simulator configuration in TA's style. 
+ *
+ * Params:
+ *  cache   ptr to the main cache data structure
+ *
+ * Returns: Nothing 
+ **************************************************************************/
+void
+cache_print_sim_config(cache_generic_t *cache)
+{
+    dprint("\n");
+    dprint("  ===== Simulator configuration =====\n");
+    dprint("  L1_BLOCKSIZE: %u\n", cache->blk_size);
+    dprint("  L1_SIZE: %u\n", cache->size);
+    dprint("  L1_ASSOC: %u\n", cache->set_assoc);
+    dprint("  L1_REPLACEMENT_POLICY: %u\n", cache->repl_plcy);
+    dprint("  L1_WRITE_POLICY: %u\n", cache->write_plcy);
+    dprint("  trace_file: %s\n", cache->trace_file);
+    dprint("  ===================================\n");
+
+    return;
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_print_sim_stats
+ *
+ * Desc:    Prints the simulator statistics in TA's style. 
+ *
+ * Params:
+ *  cache   ptr to the main cache data structure
+ *
+ * Returns: Nothing 
+ **************************************************************************/
+void
+cache_print_sim_stats(cache_generic_t *cache)
+{
+    cache_stats_t *stats = NULL;
+
+    stats = &(cache->stats);
+
+    dprint("\n");
+    dprint("  ====== Simulation results (raw) ======\n");
+    dprint("  a. number of L1 reads: %u\n", stats->num_reads);
+    dprint("  b. number of L1 read misses: %u\n", stats->num_read_misses);
+    dprint("  c. number of L1 writes: %u\n", stats->num_writes);
+    dprint("  d. number of L1 write misses: %u\n", stats->num_write_misses);
+    /* dan_todo: fix these calculations */
+    dprint("  e. L1 miss rate: %u\n", 0);
+    dprint("  f. number of writebacks from L1: %u\n", 0);
+    dprint("  g. total memory traffic: %u\n", 0);
+
+    dprint("\n");
+    dprint("  ==== Simulation results (performance) ====\n");
+    dprint("  1. average access time: %f ns\n", 0.0);
+    dprint("\n");
+
     return;
 }
 
@@ -380,6 +448,12 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
     int32_t             block_id = 0;
     cache_tagstore_t    *tagstore = NULL;
 
+    if ((!cache) || (!mref) || (!line)) {
+        cache_assert(0);
+        goto error_exit;
+    }
+
+    tagstore = cache->tagstore;
     switch (CACHE_GET_REPLACEMENT_POLICY(cache)) {
         case CACHE_REPL_PLCY_LRU:
             block_id = cache_get_lru_block(tagstore, mref, line);
@@ -440,7 +514,7 @@ void
 cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref, 
         cache_line_t *line)
 {
-    uint32_t            block_id = 0;
+    int32_t             block_id = 0;
     uint8_t             read_flag = FALSE;
     uint32_t            *tags = NULL;
     uint64_t            curr_age;
@@ -619,13 +693,13 @@ main(int argc, char **argv)
      * Parse arguments and populate the data structure with 
      * cache attributes. 
      */
-    cache_init(&g_cache, "generic cache", CACHE_LEVEL_1);
+    trace_fpath = argv[argc - 1];
+    cache_init(&g_cache, "generic cache", trace_fpath, CACHE_LEVEL_1);
     g_cache.blk_size = atoi(argv[arg_iter++]);
     g_cache.size = atoi(argv[arg_iter++]);
     g_cache.set_assoc = atoi(argv[arg_iter++]);
     g_cache.repl_plcy = atoi(argv[arg_iter++]);
     g_cache.write_plcy = atoi(argv[arg_iter++]);
-    trace_fpath = argv[arg_iter];
 
     /* Initialize a tagstore for the given cache. */
     cache_tagstore_init(&g_cache, &g_cache_ts);
@@ -668,6 +742,10 @@ main(int argc, char **argv)
 #ifdef DBG_ON
     cache_util_print(&g_cache);
 #endif /* DBG_ON */
+
+    /* Dump the cache simulator configuration, cache state and statistics. */
+    cache_print_sim_config(&g_cache);
+    cache_print_sim_stats(&g_cache);
 
     if (trace_fptr) 
         fclose(trace_fptr);

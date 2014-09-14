@@ -19,6 +19,7 @@
 #define CACHE_LEVEL_2           2
 #define CACHE_LEVEL_3           3
 #define CACHE_NAME_LEN          24
+#define CACHE_TRACE_FILE_LEN    256
 
 #define CACHE_REPL_PLCY_LRU     0
 #define CACHE_REPL_PLCY_LFU     1
@@ -70,24 +71,25 @@ typedef struct cache_tagstore__ {
     uint8_t             num_offset_bits;        /* # of bits for blk offset */
     uint32_t            *index;                 /* ptr to tag indices       */
     uint32_t            *tags;                  /* ptr to tag array         */
-    cache_tag_data_t    *tag_data;             /* ptr to tag stats         */
+    cache_tag_data_t    *tag_data;              /* ptr to tag stats         */
 } cache_tagstore_t;
 
 /* Cache statistics data structure */
 typedef struct cache_stats__ {
-    uint32_t        num_reads;              /* # of reads               */
-    uint32_t        num_writes;             /* # of writes              */
-    uint32_t        num_read_hits;          /* # of read hits           */ 
-    uint32_t        num_write_hits;         /* # of write hits          */ 
-    uint32_t        num_read_misses;        /* # of read misses         */
-    uint32_t        num_write_misses;       /* # of write misses        */
-    uint32_t        num_blk_mem_traffic;    /* # of blks transferred    */
-    void            *cache;                 /* ptr to parent cache      */
+    uint32_t            num_reads;              /* # of reads               */
+    uint32_t            num_writes;             /* # of writes              */
+    uint32_t            num_read_hits;          /* # of read hits           */ 
+    uint32_t            num_write_hits;         /* # of write hits          */ 
+    uint32_t            num_read_misses;        /* # of read misses         */
+    uint32_t            num_write_misses;       /* # of write misses        */
+    uint32_t            num_blk_mem_traffic;    /* # of blks transferred    */
+    void                *cache;                 /* ptr to parent cache      */
 } cache_stats_t;
 
 /* Generic cache data structure */
 typedef struct cache_generic__ {
     char                name[CACHE_NAME_LEN];   /* name - L1, L2..          */
+    char                trace_file[CACHE_TRACE_FILE_LEN];
     uint8_t             level;                  /* 1, 2, 3 ..               */
     uint8_t             set_assoc;              /* level of associativity   */
     uint32_t            blk_size;               /* cache block size         */
@@ -103,7 +105,8 @@ typedef struct cache_generic__ {
 
 /* Function declarations */
 void
-cache_init(cache_generic_t *pcache, const char *name, uint8_t level);
+cache_init(cache_generic_t *pcache, const char *name, 
+        const char *trace_file, uint8_t level);
 void
 cache_cleanup(cache_generic_t *pcache);
 void
