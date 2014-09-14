@@ -120,6 +120,9 @@ cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr,
     line->index = ((addr & index_mask) >> tagstore->num_offset_bits);
     line->offset = (addr & offset_mask);
 
+    dprint_info("addr 0x%x, tag 0x%x, index %u, offset %u\n", 
+            addr, line->tag, line->index, line->offset);
+
 exit:
     return;
 }
@@ -187,6 +190,26 @@ cache_util_print_stats(cache_stats_t *pstats, boolean detail)
 
 exit:
     return;
+}
+
+
+void
+cache_util_print_tagstore(cache_generic_t *cache)
+{
+    if (!cache) 
+        cache_assert(0);
+
+    dprint("Cache Tag Store Statistics\n");
+    dprint("--------------------------\n");
+    dprint("# of sets: %u\n", cache->tagstore->num_sets);
+    dprint("# of blocks: %u\n", cache->tagstore->num_blocks);
+    dprint("# of blocks/set: %u\n", cache->tagstore->num_blocks_per_set);
+    dprint("# of tag index block bits: %u %u %U\n", 
+            cache->tagstore->num_tag_bits, cache->tagstore->num_index_bits, 
+            cache->tagstore->num_offset_bits);
+
+    return;
+
 }
 #endif /* DBG_ON */
 

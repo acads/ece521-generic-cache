@@ -9,8 +9,8 @@ CLEANFILES = $(PROG) $(OBJS)
 
 # Compiler options
 CC = gcc
-DEBUG = -g -D DBG_ON
-OPTIMIZER = -O2
+DEBUG = -g -pg -D DBG_ON
+OPTIMIZER = -O0
 CFLAGS = -Wall -c $(DEBUG) $(OPTIMIZER) $(INCLS)
 LFLAGS = -Wall $(DEBUG) $(OPTIMIZER) $(INCLS)
 

@@ -25,12 +25,16 @@
 #define CACHE_WRITE_PLCY_WBWA   0
 #define CACHE_WRITE_PLCY_WTNA   1
 
-#define MEM_REF_TYPE_READ       0
-#define MEM_REF_TYPE_WRITE      1
+#define MEM_REF_TYPE_READ       'r'
+#define MEM_REF_TYPE_WRITE      'w'
 
 /* Standard typedefs */
 typedef unsigned char uchar;
 typedef unsigned char boolean;
+typedef enum cache_rv__ {
+    CACHE_RV_ERR = -1,
+    CACHE_RV_OK = 0
+} cache_rv;
 
 /* Memory reference: address and refernce type */
 typedef struct mem_ref__ {
@@ -45,19 +49,28 @@ typedef struct cache_line__ {
     uint32_t    offset;
 } cache_line_t;
 
+typedef struct cache_tag_data__ {
+#if 0
+    uint32_t        index;                  /* index of this tag        */
+    uint32_t        blk_id;                 /* id of this block         */
+#endif
+    uint32_t        age;                    /* age of this block        */
+    uint8_t         valid;                  /* valid bit of the block   */
+    uint8_t         dirty;                  /* dirty bit of the block   */
+} cache_tag_data_t;
+
 /* Cache tag store data structure */
 typedef struct cache_tagstore__ {
-    void            *cache;                 /* ptr ot parent cache      */
-    uint32_t        num_sets;               /* # of sets in cache       */
-    uint32_t        num_blocks;             /* # of blocks in cache     */
-    uint32_t        num_blocks_per_set;     /* # of blocks per set      */
-    uint8_t         num_tag_bits;           /* # of bits for tags       */
-    uint8_t         num_index_bits;         /* # of bits for index      */
-    uint8_t         num_offset_bits;        /* # of bits for blk offset */
-    uint32_t        *index;                 /* ptr to tag indices       */
-    uint32_t        *tags;                  /* ptr to tag array         */
-    uint32_t        *valid;                 /* ptr to valid bits array  */
-    uint32_t        *dirty;                 /* ptr to dirty bits array  */
+    void                *cache;                 /* ptr ot parent cache      */
+    uint32_t            num_sets;               /* # of sets in cache       */
+    uint32_t            num_blocks;             /* # of blocks in cache     */
+    uint32_t            num_blocks_per_set;     /* # of blocks per set      */
+    uint8_t             num_tag_bits;           /* # of bits for tags       */
+    uint8_t             num_index_bits;         /* # of bits for index      */
+    uint8_t             num_offset_bits;        /* # of bits for blk offset */
+    uint32_t            *index;                 /* ptr to tag indices       */
+    uint32_t            *tags;                  /* ptr to tag array         */
+    cache_tag_data_t    *tag_data;             /* ptr to tag stats         */
 } cache_tagstore_t;
 
 /* Cache statistics data structure */
@@ -97,5 +110,19 @@ void
 cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore);
 void
 cache_tagstore_cleanup(cache_generic_t *cache, cache_tagstore_t *tagstore);
-
+boolean
+cache_handle_memory_request(cache_generic_t *cache, mem_ref_t *mem_ref);
+void
+cache_handle_read_request(cache_generic_t *cache, mem_ref_t *mem_ref, 
+        cache_line_t *line);
+void
+cache_handle_write_request(cache_generic_t *cache, mem_ref_t *mem_ref, 
+        cache_line_t *line);
+boolean
+cache_is_any_block_valid(cache_tagstore_t *tagstore, cache_line_t *line);
+cache_rv
+cache_does_tag_match(cache_tagstore_t *tagstore, cache_line_t *line);
+void
+cache_add_tag_to_block(cache_tagstore_t *tagstore, mem_ref_t *mem_ref,
+        cache_line_t *line, uint32_t block_id);
 #endif /* CACHE_H_ */
