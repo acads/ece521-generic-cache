@@ -121,8 +121,6 @@ cache_handle_read_request(cache_generic_t *cache, mem_ref_t *mem_ref,
 void
 cache_handle_write_request(cache_generic_t *cache, mem_ref_t *mem_ref, 
         cache_line_t *line);
-boolean
-cache_is_any_block_valid(cache_tagstore_t *tagstore, cache_line_t *line);
 int32_t
 cache_get_first_invalid_block(cache_tagstore_t *tagstore, cache_line_t *line);
 int32_t

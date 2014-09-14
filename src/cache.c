@@ -15,6 +15,20 @@
 cache_generic_t     g_cache;        /* generic cache, l1 as of now  */
 cache_tagstore_t    g_cache_ts;     /* gemeroc cache tagstore       */
 
+/*************************************************************************** 
+ * Name:    cache_init
+ *
+ * Desc:    Init code for cache. It sets up the cache parameters based on
+ *          the user given cache configuration.
+ *
+ * Params:  
+ *  cache       ptr to the cache being initialized
+ *  name        name of the cache
+ *  trace_file  memory trace file used for simulation (for printing it later)
+ *  level       level of the cache (1, 2 and so on)
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
 cache_init(cache_generic_t *pcache, const char *name, 
         const char *trace_file, uint8_t level)
@@ -39,13 +53,46 @@ exit:
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_tagstore_init
+ *
+ * Desc:    Init code for a tagstore. Does the following:
+ *          1. Calculates all the cache parameters based on the user 
+ *              given specifications.
+ *          2. Allocated memory for tags and tag_data. This will be a 
+ *              contiguous allocation and the data should be accessed bu
+ *              either 2D indices or by linearizing the 2D index to an 1D
+ *              index. 
+ *              1D_index = block_index + (set_index * blocks_per_set)
+ *
+ *                          blocks-->
+ *                     0      1      2      3 
+ *                   +------+------+------+------+ 
+ *                   |      |      |      |      |  s
+ *                   |      |      |      |      |  e
+ *                 0 +------+------+------+------+  t
+ *                   |      |      |    * |      |  s
+ *                   |      |      |      |      |  |
+ *                 1 +------+----- +------+------+  |
+ *                   |      |      |      |      |  v
+ *                   |      |      |      |      |
+ *                 2 +------+------+------+------+
+ *
+ *              To get to the * block, 2D index would be [1][2]
+ *              eg., 1D_index = 2 + (1 * 4) = 6
+ *
+ * Params:
+ *  cache       ptr to the actual cache
+ *  tagstore    ptr to the tagstore to be assoicated with the cache
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
 cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
 {
     uint8_t     tag_bits = 0;
     uint8_t     index_bits = 0;
     uint8_t     blk_offset_bits = 0;
-    //uint32_t    blk_id = 0;
     uint32_t    num_sets = 0;
     uint32_t    num_blocks_per_set = 0;
     uint32_t    iter = 0;
@@ -124,21 +171,42 @@ fatal_exit:
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_cleanup
+ *
+ * Desc:    Cleanup code for cache. 
+ *
+ * Params:  
+ *  cache   ptr to the cache to be cleaned up
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
-cache_cleanup(cache_generic_t *pcache)
+cache_cleanup(cache_generic_t *cache)
 {
-    if (NULL == pcache) {
+    if (!pcache) {
         cache_assert(0);
         goto exit;
     }
 
-    memset(pcache, 0, sizeof *pcache);
+    memset(cache, 0, sizeof(cache));
 
 exit:
     return;
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_tagstore_cleanup
+ *
+ * Desc:    Cleanup code for tagstore. Frees all allocated memory.
+ *
+ * Params:
+ *  cache       ptr to the cache to which the current tagstore is part of
+ *  tagstore    ptr to the tagstore to be cleaned up
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
 cache_tagstore_cleanup(cache_generic_t *cache, cache_tagstore_t *tagstore)
 {
@@ -217,37 +285,6 @@ cache_print_sim_stats(cache_generic_t *cache)
     dprint("\n");
 
     return;
-}
-
-
-boolean
-cache_is_any_block_valid(cache_tagstore_t *tagstore, cache_line_t *line)
-{
-    uint32_t            block_id = 0;
-    uint32_t            index = 0;
-    uint32_t            num_blocks = 0;
-    cache_tag_data_t    *tag_data = NULL;
-
-    if ((!tagstore) || (!line)) {
-        cache_assert(0);
-        goto exit;
-    }   
-
-    index = line->index;
-    num_blocks = tagstore->num_blocks_per_set;
-    tag_data = &tagstore->tag_data[index];
-
-    /*  
-     * Go over all the blocks for the given index. If any of the blocks is
-     * valid, return it's index. Else, return CACHE_RV_ERR.
-     */
-    for (block_id = 0; block_id < num_blocks; ++block_id) {
-        if (tag_data[block_id].valid)
-            return TRUE;
-    }   
-
-exit:
-    return FALSE;
 }
 
 
@@ -427,6 +464,7 @@ cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, uint32_t block_id)
     return;
 }
 
+
 /*************************************************************************** 
  * Name:    cache_evict_tag
  *
@@ -486,6 +524,7 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
 error_exit:
     return CACHE_RV_ERR;
 }
+
 
 /*************************************************************************** 
  * Name:    cache_evict_and_add_tag 
@@ -597,72 +636,40 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
 }
 
 
-void
-cache_handle_read_request(cache_generic_t *cache, mem_ref_t *mem_ref, 
-        cache_line_t *line)
-{
-    if ((!cache) || (!mem_ref) || (!line)) {
-        cache_assert(0);
-        goto exit;
-    }
-
-    cache_evict_and_add_tag(cache, mem_ref, line);
-#if 0
-    cache_util_increment_reads(cache);
-    /*
-     * 1. For this index, check if all blocks are invalid. If so, it's a 
-     *    cache miss.
-     * 2. If there is even a single valid block, check for tag match. If 
-     *    there's a match:
-     *      a. Check for dirty bit (only for WBWA policy).  If dirty, write
-     *         the block and mark block as not-dirty.
-     */
-    if (FALSE == cache_is_any_block_valid(cache->tagstore, line)) {
-        dprint_info("cache miss for %c 0x%x\n", 
-                mem_ref->ref_type, mem_ref->ref_addr);
-        cache_util_increment_read_miss(cache);
-
-        /* All blocks are invalid. So, place the tag in the 1st block. */
-        cache_add_tag_to_block(cache->tagstore, mem_ref, line, 0);
-    }
-#endif
-
-exit:
-    return;
-}
-
-
-void
-cache_handle_write_request(cache_generic_t *cache, mem_ref_t *mem_ref, 
-        cache_line_t *line)
-{
-    return;
-}
-
-
+/*************************************************************************** 
+ * Name:    cache_handle_memory_request 
+ *
+ * Desc:    Cache processing entry point for the main driver. Decodes the
+ *          incoming memory reference into cache understandable data and
+ *          calls further cache processing routines.
+ *
+ * Params:
+ *  cache   ptr to L1 cache
+ *  mref    ptr to incoming memory reference
+ *
+ * Returns: boolean
+ *  TRUE if all goes well
+ *  FALSE otherwise 
+ **************************************************************************/
 boolean
-cache_handle_memory_request(cache_generic_t *cache, mem_ref_t *mem_ref)
+cache_handle_memory_request(cache_generic_t *cache, mem_ref_t *mref)
 {
-    cache_line_t cache_line;
+    cache_line_t line;
 
-    if ((!cache) || (!mem_ref)) {
+    if ((!cache) || (!mref)) {
         cache_assert(0);
         goto error_exit;
     }
 
-    memset(&cache_line, 0, sizeof cache_line);
+    /*
+     * Decode the incoming memory reference into <tag, index, offset> based
+     * on the cache configuration.
+     */
+    memset(&line, 0, sizeof(line));
+    cache_util_decode_mem_addr(cache->tagstore, mref->ref_addr, &line);
 
-    cache_util_decode_mem_addr(cache->tagstore, mem_ref->ref_addr, 
-            &cache_line);
-
-    if (IS_MEM_REF_READ(mem_ref)) {
-        cache_handle_read_request(cache, mem_ref, &cache_line);
-    } else if (IS_MEM_REF_WRITE(mem_ref)) {
-        cache_handle_write_request(cache, mem_ref, &cache_line);
-    } else {
-        cache_assert(0);
-        goto error_exit;
-    }
+    /* Cache pipeline starts here. */
+    cache_evict_and_add_tag(cache, mref, &line);
 
     return TRUE;
 
@@ -671,6 +678,7 @@ error_exit:
 }
 
 
+/* 42: Life, the Universe and Everything; including caches. */
 int
 main(int argc, char **argv)
 {
@@ -711,17 +719,6 @@ main(int argc, char **argv)
         goto error_exit;
     }
 
-#if 0
-    {
-        uint32_t addr = 0x4002e850;
-        cache_line_t tmp;
-
-        cache_util_decode_mem_addr(g_cache.tagstore, addr, &tmp);
-        dprint("addr 0x%x, tag 0x%x, index 0x%u, offset %u\n",
-                addr, tmp.tag, tmp.index, tmp.offset);
-        return 0;
-    }
-#endif
 
     /* 
      * Read the trace file, fetch the address and process the memory access
