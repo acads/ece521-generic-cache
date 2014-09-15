@@ -14,6 +14,7 @@
 
 cache_generic_t     g_cache;        /* generic cache, l1 as of now  */
 cache_tagstore_t    g_cache_ts;     /* gemeroc cache tagstore       */
+const char          *g_dirty = "D"; /* used to denote dirty blocks  */
 
 /*************************************************************************** 
  * Name:    cache_init
@@ -45,8 +46,6 @@ cache_init(cache_generic_t *pcache, const char *name,
     pcache->stats.cache = pcache;
     pcache->next_cache = NULL;
     pcache->prev_cache = NULL;
-    dprint("lol %s\n", pcache->trace_file);
-    dprint("lol1 %s\n", trace_file);
 
 exit:
     return;
@@ -155,8 +154,9 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
 #endif
     }
 
-    /* Assoicate the tagstore to the given cache. */
+    /* Assoicate the tagstore to the given cache and vice-versa. */
     cache->tagstore = tagstore;
+    tagstore->cache = cache;
 
 #ifdef DBG_ON
     cache_util_print_tagstore(cache);
@@ -184,7 +184,7 @@ fatal_exit:
 void
 cache_cleanup(cache_generic_t *cache)
 {
-    if (!pcache) {
+    if (!cache) {
         cache_assert(0);
         goto exit;
     }
@@ -239,12 +239,12 @@ cache_print_sim_config(cache_generic_t *cache)
 {
     dprint("\n");
     dprint("  ===== Simulator configuration =====\n");
-    dprint("  L1_BLOCKSIZE: %u\n", cache->blk_size);
-    dprint("  L1_SIZE: %u\n", cache->size);
-    dprint("  L1_ASSOC: %u\n", cache->set_assoc);
-    dprint("  L1_REPLACEMENT_POLICY: %u\n", cache->repl_plcy);
-    dprint("  L1_WRITE_POLICY: %u\n", cache->write_plcy);
-    dprint("  trace_file: %s\n", cache->trace_file);
+    dprint("  L1_BLOCKSIZE: %21u\n", cache->blk_size);
+    dprint("  L1_SIZE: %26u\n", cache->size);
+    dprint("  L1_ASSOC: %25u\n", cache->set_assoc);
+    dprint("  L1_REPLACEMENT_POLICY: %12u\n", cache->repl_plcy);
+    dprint("  L1_WRITE_POLICY: %18u\n", cache->write_plcy);
+    dprint("  trace_file: %23s\n", cache->trace_file);
     dprint("  ===================================\n");
 
     return;
@@ -264,29 +264,98 @@ cache_print_sim_config(cache_generic_t *cache)
 void
 cache_print_sim_stats(cache_generic_t *cache)
 {
-    cache_stats_t *stats = NULL;
+    double          miss_rate = 0.0;
+    double          hit_time = 0.0;
+    double          miss_penalty = 0.0;
+    double          avg_access_time = 0.0;
+    double          total_access_time = 0.0;
+    cache_stats_t   *stats = NULL;
 
     stats = &(cache->stats);
 
+    /* 
+     * Calculation of avg. access time (from project web-page):
+     * Some fixed parameters to use in your project:
+     *  1. L2 Miss_Penalty (in ns) = 20 ns + 0.5*(L2_BLOCKSIZE / 16 B/ns) 
+     *      (in the case that there is only L1 cache, use
+     *      L1 miss penalty (in ns) = 20 ns + 0.5*(L1_BLOCKSIZE / 16 B/ns))
+     *  2. L1 Cache Hit Time (in ns) = 0.25ns + 2.5ns * (L1_Cache Size / 512kB)
+     *      + 0.025ns * (L1_BLOCKSIZE / 16B) + 0.025ns * L1_SET_ASSOCIATIVITY
+     * 3.  L2 Cache Hit Time (in ns) = 2.5ns + 2.5ns * (L2_Cache Size / 512kB) 
+     *      + 0.025ns * (L2_BLOCKSIZE / 16B) + 0.025ns * L2_SET_ASSOCIATIVITY
+     * 4.  Area Budget = 512kB for both L1 and L2 Caches
+     */
+    miss_rate =  ((double) (stats->num_read_misses + stats->num_write_misses) /
+                (double) (stats->num_reads + stats->num_writes));
+    hit_time = (0.25 + (2.5 * (((double) cache->size) / 512000)) + (0.025 *
+            (((double) cache->blk_size) / 16)) + (0.025 * cache->set_assoc));
+    miss_penalty = (20 + (0.5 * (((double) cache->blk_size) / 16)));
+    total_access_time = (((stats->num_reads + stats->num_writes) * hit_time) +
+            ((stats->num_read_misses + stats->num_write_misses) * 
+             miss_penalty));
+    avg_access_time = (hit_time + (miss_rate * miss_penalty));
+    //avg_access_time = (total_access_time / 
+      //      (stats->num_reads + stats->num_writes));
+
     dprint("\n");
     dprint("  ====== Simulation results (raw) ======\n");
-    dprint("  a. number of L1 reads: %u\n", stats->num_reads);
-    dprint("  b. number of L1 read misses: %u\n", stats->num_read_misses);
-    dprint("  c. number of L1 writes: %u\n", stats->num_writes);
-    dprint("  d. number of L1 write misses: %u\n", stats->num_write_misses);
-    /* dan_todo: fix these calculations */
-    dprint("  e. L1 miss rate: %u\n", 0);
-    dprint("  f. number of writebacks from L1: %u\n", 0);
-    dprint("  g. total memory traffic: %u\n", 0);
+    dprint("  a. number of L1 reads: %15u\n", stats->num_reads);
+    dprint("  b. number of L1 read misses: %9u\n", stats->num_read_misses);
+    dprint("  c. number of L1 writes: %14u\n", stats->num_writes);
+    dprint("  d. number of L1 write misses: %8u\n", stats->num_write_misses);
+    dprint("  e. L1 miss rate: %21.4f\n", miss_rate);
+    dprint("  f. number of writebacks from L1: %5u\n", stats->num_write_backs);
+    dprint("  g. total memory traffic: %13u\n", stats->num_blk_mem_traffic);
 
     dprint("\n");
     dprint("  ==== Simulation results (performance) ====\n");
-    dprint("  1. average access time: %f ns\n", 0.0);
-    dprint("\n");
+    dprint("  1. average access time: %14.4f ns\n", avg_access_time);
 
     return;
 }
 
+
+/*************************************************************************** 
+ * Name:    cache_print_sim_data
+ *
+ * Desc:    Prints the simulator data in TA's style. 
+ *
+ * Params:
+ *  cache   ptr to the main cache data structure
+ *
+ * Returns: Nothing 
+ **************************************************************************/
+void
+cache_print_sim_data(cache_generic_t *cache)
+{
+    uint32_t            index = 0;
+    uint32_t            block_id = 0;
+    uint32_t            linear_id = 0;
+    uint32_t            num_sets = 0;
+    uint32_t            num_blocks_per_set = 0;
+    uint32_t            *tags = NULL;
+    cache_tag_data_t    *tag_data = NULL;
+    cache_tagstore_t    *tagstore = NULL;
+
+    tagstore = cache->tagstore;
+    num_sets = tagstore->num_sets;
+    num_blocks_per_set = tagstore->num_blocks_per_set;
+
+    dprint("\n===== L1 contents =====\n");
+    for (index = 0; index < num_sets; ++index) {
+        tags = &tagstore->tags[index];
+        tag_data = &tagstore->tag_data[index];
+        for (block_id = 0; block_id < num_blocks_per_set; 
+                ++block_id) {
+            dprint("set%4u: %7x %s\n", 
+                    linear_id, tags[block_id], 
+                    (tag_data[block_id].dirty) ? g_dirty : "");
+            linear_id += 1;
+        }
+    }
+
+    return;
+}
 
 /*************************************************************************** 
  * Name:    cache_get_lru_block
@@ -458,9 +527,32 @@ error_exit:
  * Returns: Nothing
  **************************************************************************/
 void
-cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, uint32_t block_id)
+cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line, 
+        uint32_t block_id)
 {
+    cache_generic_t     *cache = NULL;
+    cache_tag_data_t    *tag_data = NULL;
+
+    if (!tagstore) {
+        cache_assert(0);
+        goto exit;
+    }
+
+    cache = (cache_generic_t *) tagstore->cache;
+    tag_data = &tagstore->tag_data[line->index];
+
+    /* 
+     * As of now, we just update the write back counter and clear the dirty
+     * bit on the block. This code will be extended in the future to
+     * implement actual memory write backs.
+     */
+    cache->stats.num_write_backs += 1;
+    cache->stats.num_blk_mem_traffic += 1;
+    tag_data[block_id].dirty = 0;
+
     /* dan_todo: add code for handling dirty evicts. */
+
+exit:
     return;
 }
 
@@ -516,7 +608,7 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
     if (cache_util_is_block_dirty(tagstore, line, block_id)) {
         dprint_info("selected a dirty block to evict in index %u, block %d\n",
                 line->index, block_id);
-        cache_handle_dirty_tag_evicts(tagstore, block_id);
+        cache_handle_dirty_tag_evicts(tagstore, line, block_id);
     }
 
     return block_id;
@@ -601,6 +693,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
          */
         tags[block_id] = line->tag;
 
+        cache->stats.num_blk_mem_traffic += 1;
         tag_data[block_id].valid = 1;
         tag_data[block_id].age = curr_age;
         if (read_flag) {
@@ -620,6 +713,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         block_id = cache_evict_tag(cache, mem_ref, line);
         tags[block_id] = line->tag;
 
+        cache->stats.num_blk_mem_traffic += 1;
         tag_data[block_id].valid = 1;
         tag_data[block_id].age = curr_age;
         if (read_flag) {
@@ -719,7 +813,6 @@ main(int argc, char **argv)
         goto error_exit;
     }
 
-
     /* 
      * Read the trace file, fetch the address and process the memory access
      * request for every request in the trace file. 
@@ -742,6 +835,7 @@ main(int argc, char **argv)
 
     /* Dump the cache simulator configuration, cache state and statistics. */
     cache_print_sim_config(&g_cache);
+    cache_print_sim_data(&g_cache);
     cache_print_sim_stats(&g_cache);
 
     if (trace_fptr) 

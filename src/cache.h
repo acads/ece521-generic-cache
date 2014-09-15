@@ -82,6 +82,7 @@ typedef struct cache_stats__ {
     uint32_t            num_write_hits;         /* # of write hits          */ 
     uint32_t            num_read_misses;        /* # of read misses         */
     uint32_t            num_write_misses;       /* # of write misses        */
+    uint32_t            num_write_backs;        /* # of write backs         */
     uint32_t            num_blk_mem_traffic;    /* # of blks transferred    */
     void                *cache;                 /* ptr to parent cache      */
 } cache_stats_t;
@@ -134,6 +135,7 @@ cache_get_lfu_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
 int32_t
 cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line);
 void
-cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, uint32_t block_id);
+cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line, 
+        uint32_t block_id);
 
 #endif /* CACHE_H_ */
