@@ -67,6 +67,8 @@ boolean
 util_is_power_of_2(uint32_t num);
 uint32_t
 util_log_base_2(uint32_t num);
+inline uint64_t
+util_get_curr_time(void);
 
 #endif /* CACHE_UTILS_H_ */
 

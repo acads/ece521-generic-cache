@@ -651,12 +651,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
     uint64_t            curr_age;
     cache_tag_data_t    *tag_data = NULL;
     cache_tagstore_t    *tagstore = NULL;
-    struct timeval      curr_time;
 
     /* Fetch the current time to be used for tag age. */
-    memset(&curr_time, 0, sizeof(curr_time));
-    gettimeofday(&curr_time, NULL);
-    curr_age = ((curr_time.tv_sec * 1000000) + curr_time.tv_usec);
+    curr_age = util_get_curr_time(); 
 
     tagstore = cache->tagstore;
     tags = &tagstore->tags[line->index];

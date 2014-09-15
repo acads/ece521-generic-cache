@@ -9,11 +9,23 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include "cache.h"
 #include "cache_utils.h"
 
 
 /* Util functions */
+/*************************************************************************** 
+ * Name:    util_get_msb_mask
+ *
+ * Desc:    Computes and returns a 32-bit unsigned MSB mask.
+ *
+ * Params:
+ *  num_msb_bits    # of MSB bits to be masked
+ *
+ * Returns: uint32_t
+ *  32-bit uint with num_msb_bits masked
+ **************************************************************************/
 static inline unsigned
 util_get_msb_mask(uint32_t num_msb_bits)
 {
@@ -21,6 +33,17 @@ util_get_msb_mask(uint32_t num_msb_bits)
 }
 
 
+/*************************************************************************** 
+ * Name:   util_get_lsb_mask 
+ *
+ * Desc:    Computes and returns a 32-bit unsigned LSB mask.
+ *
+ * Params:
+ *  num_lsb_bits    # of LSB bits to be masked
+ *
+ * Returns: uint32_t
+ *  32-bit uint with num_lsb_bits masked
+ **************************************************************************/
 static inline unsigned
 util_get_lsb_mask(uint32_t num_lsb_bits)
 {
@@ -28,12 +51,114 @@ util_get_lsb_mask(uint32_t num_lsb_bits)
 }
 
 
+/*************************************************************************** 
+ * Name:    util_get_field_mask
+ *
+ * Desc:    Computes and returns a 32-bit arbitrary mask with bits from
+ *          start_bit thru end_bit (both including) masked.
+ *
+ * Params:
+ *  start_bit   start of mask
+ *  end_bit     end of mask
+ *
+ * Returns: uint32_t
+ *  32-bit uint with bits from start_bit thru end_bit masked
+ **************************************************************************/
 static inline unsigned
 util_get_field_mask(uint32_t start_bit, uint32_t end_bit)
 {
     return (util_get_lsb_mask(end_bit + 1) & (~util_get_lsb_mask(start_bit)));
 }
 
+
+/*************************************************************************** 
+ * Name:    util_is_power_of_2
+ *
+ * Desc:    Checks whether a given number is a power of 2 or not
+ *
+ * Params:
+ *  num     unsigned 32-bit int which is to be tested for power of 2
+ *
+ * Returns: boolean
+ *  TRUE if num is a power of two
+ *  FALSE otherwise or if num is 0
+ **************************************************************************/
+boolean
+util_is_power_of_2(uint32_t num)
+{
+    if (0 == num)
+        return FALSE;
+
+    if (num & (num - 1))
+        return FALSE;
+
+    return TRUE;
+}
+
+
+/*************************************************************************** 
+ * Name:    util_log_base_2
+ *
+ * Desc:    Computes the log_base_2 of the given number
+ *
+ * Params:
+ *  num     32-bit uint whose log_base_2 is to be computed
+ *
+ * Returns: uint32_t
+ *  Returns the log_base_2 of num
+ *
+ * Note:    This is only for numbers that are power of 2
+ **************************************************************************/
+uint32_t
+util_log_base_2(uint32_t num)
+{
+    uint32_t result = 0;
+    uint32_t tmp = 0;
+
+    tmp = num;
+    while (tmp >>= 1)
+        result += 1;
+
+    return result;
+}
+
+
+/*************************************************************************** 
+ * Name:    util_get_curr_time
+ *
+ * Desc:    Returns the current system time in useconds
+ *
+ * Params:  None
+ *
+ * Returns: uint64_t
+ *  Current system time in useconds
+ **************************************************************************/
+inline uint64_t
+util_get_curr_time(void)
+{
+    struct timeval  curr_time;
+
+    memset(&curr_time, 0, sizeof(curr_time));
+    gettimeofday(&curr_time, NULL);
+
+    return ((curr_time.tv_sec * 1000000) + curr_time.tv_usec);
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_util_is_block_dirty
+ *
+ * Desc:    Checks whether the given block is dirty or not
+ *
+ * Params:
+ *  tagstore    ptr to the tagstore
+ *  line        ptr to decoded addr as cache line
+ *  block_id    ID of the block to check for dirty bit
+ *
+ * Returns: boolean
+ *  TRUE if the block is dirty
+ *  FALSE otherwise
+ **************************************************************************/
 inline boolean
 cache_util_is_block_dirty(cache_tagstore_t *tagstore, cache_line_t *line, 
         int32_t block_id)
@@ -44,6 +169,24 @@ cache_util_is_block_dirty(cache_tagstore_t *tagstore, cache_line_t *line,
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_util_validate_input
+ *
+ * Desc:    Validates the user entered cache configuration. Checks the 
+ *          following:
+ *          1. Total # of cache config arguments to be 6 
+ *          2. Block size to be a power of 2.
+ *          3. Valid replacement and write policies. 
+ *          4. Given trace file is readable or not.
+ *
+ * Params:
+ *  nargs   # of input arguments
+ *  args    ptr to user entered arguments
+ *
+ * Returns: boolean
+ *  TRUE if all arguments are good
+ *  FALSE otherwise
+ **************************************************************************/
 boolean
 cache_util_validate_input(int nargs, char **args)
 {
@@ -89,6 +232,17 @@ cache_util_validate_input(int nargs, char **args)
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_util_print_usage
+ *
+ * Desc:    Prints simulator execution instructions. To be displayed upon
+ *          wrong input parameters.
+ *
+ * Params:  
+ *  prog    ptr to user's executable name
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
 cache_util_print_usage(const char *prog)
 {
@@ -107,6 +261,20 @@ cache_util_print_usage(const char *prog)
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_util_decode_mem_addr
+ *
+ * Desc:    Decodes the incoming memory address reference into cache 
+ *          understandable format in a cache line.
+ *          i.e., <addr> = <tag, index, block_offset>
+ *
+ * Params:
+ *  tagstore    ptr to the tagstore of the cache for which addr is decoded
+ *  addr        incoming 32-bit memory address
+ *  line        ptr to store the decoded addr
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
 cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr, 
         cache_line_t *line)
@@ -140,6 +308,16 @@ exit:
 
 
 #ifdef DBG_ON
+/*************************************************************************** 
+ * Name:    cache_util_print
+ *
+ * Desc:    Prints the cache details, configuration and statistics.
+ *
+ * Params:
+ *  pcache  ptr to the cache whose details are to be printed
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void 
 cache_util_print(cache_generic_t *pcache)
 {
@@ -166,6 +344,17 @@ exit:
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_util_print_stats
+ *
+ * Desc:    Prints the cache statistics.
+ *
+ * Params:
+ *  pstats  ptr to the cache statistics data
+ *  detail  flag to denote whether parent cache details are to be printed
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
 cache_util_print_stats(cache_stats_t *pstats, boolean detail)
 {
@@ -206,6 +395,16 @@ exit:
 }
 
 
+/*************************************************************************** 
+ * Name:    cache_util_print_tagstore
+ *
+ * Desc:    Pretty prints the cache tagstore details
+ *
+ * Params:
+ *  pcache  ptr to cache whose details are to be printed
+ *
+ * Returns: Nothing
+ **************************************************************************/
 void
 cache_util_print_tagstore(cache_generic_t *cache)
 {
@@ -228,28 +427,3 @@ cache_util_print_tagstore(cache_generic_t *cache)
 #endif /* DBG_ON */
 
 
-boolean
-util_is_power_of_2(uint32_t num)
-{
-    if (0 == num)
-        return FALSE;
-
-    if (num & (num - 1))
-        return FALSE;
-
-    return TRUE;
-}
-
-
-uint32_t
-util_log_base_2(uint32_t num)
-{
-    uint32_t result = 0;
-    uint32_t tmp = 0;
-
-    tmp = num;
-    while (tmp >>= 1)
-        result += 1;
-
-    return result;
-}
