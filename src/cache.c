@@ -378,6 +378,7 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
     int32_t             block_id = 0;
     int32_t             min_block_id = 0;
     uint32_t            num_blocks = 0;
+    uint32_t            tag_index = 0;
     uint64_t            min_age = 0;
     cache_tag_data_t    *tag_data = NULL;
 
@@ -387,7 +388,8 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
     }
 
     num_blocks = tagstore->num_blocks_per_set;
-    tag_data = &tagstore->tag_data[line->index];
+    tag_index = (line->index * num_blocks);
+    tag_data = &tagstore->tag_data[tag_index];
 
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         if ((tag_data[block_id].valid) && tag_data[block_id].age < min_age) {
@@ -444,6 +446,7 @@ cache_get_first_invalid_block(cache_tagstore_t *tagstore, cache_line_t *line)
 {
     int32_t             block_id = 0;
     uint32_t            num_blocks = 0;
+    uint32_t            tag_index = 0;
     cache_tag_data_t    *tag_data = NULL;
 
     if ((!tagstore) || (!line)) {
@@ -452,7 +455,8 @@ cache_get_first_invalid_block(cache_tagstore_t *tagstore, cache_line_t *line)
     }
 
     num_blocks = tagstore->num_blocks_per_set;
-    tag_data = &tagstore->tag_data[line->index];
+    tag_index = (line->index * num_blocks);
+    tag_data = &tagstore->tag_data[tag_index];
 
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         if (!tag_data[block_id].valid)
@@ -481,7 +485,7 @@ error_exit:
 int32_t
 cache_does_tag_match(cache_tagstore_t *tagstore, cache_line_t *line)
 {
-    uint32_t            index = 0;
+    uint32_t            tag_index = 0;
     uint32_t            block_id = 0;
     uint32_t            num_blocks = 0;
     uint32_t            *tags = NULL;
@@ -494,9 +498,9 @@ cache_does_tag_match(cache_tagstore_t *tagstore, cache_line_t *line)
     }
 
     num_blocks = tagstore->num_blocks_per_set;
-    index = line->index;
-    tags = &tagstore->tags[index];
-    tag_data = &tagstore->tag_data[index];
+    tag_index = (line->index * num_blocks);
+    tags = &tagstore->tags[tag_index];
+    tag_data = &tagstore->tag_data[tag_index];
 
     /*
      * Go over all the valid blocks for this set and compare the incoming tag
@@ -530,6 +534,7 @@ void
 cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line, 
         uint32_t block_id)
 {
+    uint32_t            tag_index = 0;
     cache_generic_t     *cache = NULL;
     cache_tag_data_t    *tag_data = NULL;
 
@@ -539,7 +544,8 @@ cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line,
     }
 
     cache = (cache_generic_t *) tagstore->cache;
-    tag_data = &tagstore->tag_data[line->index];
+    tag_index = (line->index * tagstore->num_blocks_per_set);
+    tag_data = &tagstore->tag_data[tag_index];
 
     /* 
      * As of now, we just update the write back counter and clear the dirty
@@ -645,8 +651,9 @@ void
 cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref, 
         cache_line_t *line)
 {
-    int32_t             block_id = 0;
     uint8_t             read_flag = FALSE;
+    int32_t             block_id = 0;
+    uint32_t            tag_index = 0;
     uint32_t            *tags = NULL;
     uint64_t            curr_age;
     cache_tag_data_t    *tag_data = NULL;
@@ -656,8 +663,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
     curr_age = util_get_curr_time(); 
 
     tagstore = cache->tagstore;
-    tags = &tagstore->tags[line->index];
-    tag_data = &tagstore->tag_data[line->index];
+    tag_index = (line->index * tagstore->num_blocks_per_set);
+    tags = &tagstore->tags[tag_index];
+    tag_data = &tagstore->tag_data[tag_index];
     read_flag = (IS_MEM_REF_READ(mem_ref) ? TRUE : FALSE);
 
     if (read_flag)
@@ -869,3 +877,4 @@ error_exit:
 
     return -1;
 }
+
