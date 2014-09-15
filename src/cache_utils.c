@@ -427,3 +427,22 @@ cache_util_print_tagstore(cache_generic_t *cache)
 #endif /* DBG_ON */
 
 
+void
+cache_util_print_debug_data(cache_generic_t *cache, cache_line_t *line)
+{
+    uint32_t            *tags = NULL;
+    uint32_t            num_blocks = 0;
+    uint32_t            block_id = 0;
+    cache_tagstore_t    *tagstore = NULL;
+
+    tagstore = cache->tagstore;
+    tags = &tagstore->tags[line->index];
+    num_blocks = tagstore->num_blocks_per_set;
+
+    dprint("debug_set %u: ", line->index);
+    for (block_id = 0; block_id < num_blocks; ++block_id)
+        dprint("%8x", tags[block_id]);
+    dprint("\n");
+
+    return;
+}

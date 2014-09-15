@@ -18,6 +18,7 @@
 #define IS_MEM_REF_WRITE(REF)   (MEM_REF_TYPE_WRITE == REF->ref_type)
 
 #define CACHE_GET_REPLACEMENT_POLICY(CACHE)     (CACHE->repl_plcy)
+#define CACHE_GET_WRITE_POLICY(CACHE)           (CACHE->write_plcy)
 
 #define dprint(str, ...)     printf(str, ##__VA_ARGS__)
 #ifdef DBG_ON
@@ -69,6 +70,9 @@ uint32_t
 util_log_base_2(uint32_t num);
 inline uint64_t
 util_get_curr_time(void);
+void
+cache_util_print_debug_data(cache_generic_t *cache, cache_line_t *line);
+
 
 #endif /* CACHE_UTILS_H_ */
 

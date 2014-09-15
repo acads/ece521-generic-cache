@@ -189,7 +189,7 @@ cache_cleanup(cache_generic_t *cache)
         goto exit;
     }
 
-    memset(cache, 0, sizeof(cache));
+    memset(cache, 0, sizeof(*cache));
 
 exit:
     return;
@@ -330,7 +330,6 @@ cache_print_sim_data(cache_generic_t *cache)
 {
     uint32_t            index = 0;
     uint32_t            block_id = 0;
-    uint32_t            linear_id = 0;
     uint32_t            num_sets = 0;
     uint32_t            num_blocks_per_set = 0;
     uint32_t            *tags = NULL;
@@ -345,13 +344,14 @@ cache_print_sim_data(cache_generic_t *cache)
     for (index = 0; index < num_sets; ++index) {
         tags = &tagstore->tags[index];
         tag_data = &tagstore->tag_data[index];
+        dprint("set%4u: ", index);
+        
         for (block_id = 0; block_id < num_blocks_per_set; 
                 ++block_id) {
-            dprint("set%4u: %7x %s\n", 
-                    linear_id, tags[block_id], 
-                    (tag_data[block_id].dirty) ? g_dirty : "");
-            linear_id += 1;
+            dprint(" %7x %s", 
+                    tags[block_id], (tag_data[block_id].dirty) ? g_dirty : "");
         }
+        dprint("\n");
     }
 
     return;
@@ -677,7 +677,10 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
             cache->stats.num_read_hits += 1;
         } else {
             cache->stats.num_write_hits += 1;
-            tag_data[block_id].dirty = 1;
+            
+            /* Set the block to be dirty only for WBWA write policy. */
+            if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
+                tag_data[block_id].dirty = 1;
         }
         dprint_info("tag 0x%x already present in index %u, block %u\n",
                 line->tag, line->index, block_id);
@@ -688,6 +691,13 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
          * being used for the first time. Place the tag in the 1st available 
          * block. 
          */
+
+        if ((!read_flag) && 
+                (CACHE_WRITE_PLCY_WTNA == CACHE_GET_WRITE_POLICY(cache))) {
+            /* Don't bother for writes when the policy is set to WTNA. */
+            goto exit;
+        }
+
         tags[block_id] = line->tag;
 
         cache->stats.num_blk_mem_traffic += 1;
@@ -697,7 +707,10 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
             cache->stats.num_read_misses += 1;
         } else {
             cache->stats.num_write_misses += 1;
-            tag_data[block_id].dirty = 1;
+
+            /* Set the block to be dirty only for WBWA write policy. */
+            if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
+                tag_data[block_id].dirty = 1;
         }
         dprint_info("tag 0x%x added to index %u, block %u\n", 
                 line->tag, line->index, block_id);
@@ -707,8 +720,16 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
          * Evict an existing tag based on the replacement policy set and place
          * the new tag on that block.
          */
+        
+        if ((!read_flag) && 
+                (CACHE_WRITE_PLCY_WTNA == CACHE_GET_WRITE_POLICY(cache))) {
+            /* Don't bother with write misses for WTNA write policy. */
+            goto exit;
+        }
+
         block_id = cache_evict_tag(cache, mem_ref, line);
         tags[block_id] = line->tag;
+
 
         cache->stats.num_blk_mem_traffic += 1;
         tag_data[block_id].valid = 1;
@@ -723,6 +744,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
                 line->tag, line->index, block_id);
     }
 
+exit:
+    cache_util_print_debug_data(cache, line);
     return;
 }
 
