@@ -70,6 +70,8 @@ uint32_t
 util_log_base_2(uint32_t num);
 inline uint64_t
 util_get_curr_time(void);
+inline uint32_t
+util_get_block_ref_count(cache_tagstore_t *tagstore, cache_line_t *line);
 void
 cache_util_print_debug_data(cache_generic_t *cache, cache_line_t *line);
 

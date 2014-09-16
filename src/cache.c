@@ -135,6 +135,7 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
     tagstore->tag_data = 
         calloc(1, (num_sets * num_blocks_per_set * 
                     sizeof (*(tagstore->tag_data))));
+    tagstore->set_ref_count = calloc(1, (num_sets * sizeof(uint32_t)));
 
     if ((!tagstore->index) || (!tagstore->tags) || (!tagstore->tag_data)) {
         dprint("Error: Unable to allocate memory for cache tagstore.\n");
@@ -218,6 +219,7 @@ cache_tagstore_cleanup(cache_generic_t *cache, cache_tagstore_t *tagstore)
     free(tagstore->index);
     free(tagstore->tags);
     free(tagstore->tag_data);
+    free(tagstore->set_ref_count);
 
 exit:
     return;
@@ -401,14 +403,14 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
         }
     }
 
-#if 0
+#ifdef DBG_ON
     printf("LRU index %u\n", line->index);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         printf("    block %u, valid %u, age %lu\n",
                 block_id, tag_data[block_id].valid, tag_data[block_id].age);
     }
     printf("min_block %u, min_age %lu\n", min_block_id, min_age);
-#endif
+#endif /* DBG_ON */
 
     return min_block_id;
 
@@ -435,7 +437,50 @@ int32_t
 cache_get_lfu_block(cache_tagstore_t *tagstore, mem_ref_t *mref, 
         cache_line_t *line)
 {
-    /* dan_todo: code for LFU policy. */
+    int32_t             block_id = 0;
+    int32_t             min_block_id = 0;
+    uint32_t            num_blocks = 0;
+    uint32_t            tag_index = 0;
+    uint32_t            min_ref_count = 0;
+#ifdef DBG_ON
+    uint32_t            *tags = NULL;
+#endif /* DBG_ON */
+    cache_tag_data_t    *tag_data = NULL;
+
+    if ((!tagstore) || (!mref) || (!line)) {
+        cache_assert(0);
+        goto error_exit;
+    }
+
+    num_blocks = tagstore->num_blocks_per_set;
+    tag_index = (line->index * num_blocks);
+#ifdef DBG_ON
+    tags = &tagstore->tags[tag_index];
+#endif /* DBG_ON */
+    tag_data = &tagstore->tag_data[tag_index];
+
+    for (block_id = 0, min_ref_count = tag_data[block_id].ref_count; 
+            block_id < num_blocks; ++block_id) {
+        if ((tag_data[block_id].valid) && 
+                (tag_data[block_id].ref_count < min_ref_count)) {
+            min_block_id = block_id;
+            min_ref_count = tag_data[block_id].ref_count;
+        }
+    }
+
+#ifdef DBG_ON
+    printf("LFU index %u\n", line->index);
+    for (block_id = 0; block_id < num_blocks; ++block_id) {
+        printf("    block %u, tag 0x%x, valid %u, ref_count %u\n",
+                block_id, tags[block_id], tag_data[block_id].valid, 
+                tag_data[block_id].ref_count);
+    }
+    printf("min_block %u, min_ref_count %u\n", min_block_id, min_ref_count);
+#endif /* DBG_ON */
+
+    return min_block_id;
+
+error_exit:
     return CACHE_RV_ERR;
 }
 
@@ -597,6 +642,7 @@ int32_t
 cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
 {
     int32_t             block_id = 0;
+    uint32_t            tag_index;
     cache_tagstore_t    *tagstore = NULL;
 
     if ((!cache) || (!mref) || (!line)) {
@@ -605,6 +651,8 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
     }
 
     tagstore = cache->tagstore;
+    tag_index = (line->index * tagstore->num_blocks_per_set);
+
     switch (CACHE_GET_REPLACEMENT_POLICY(cache)) {
         case CACHE_REPL_PLCY_LRU:
             block_id = cache_get_lru_block(tagstore, mref, line);
@@ -616,6 +664,21 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
             block_id = cache_get_lfu_block(tagstore, mref, line);
             if (CACHE_RV_ERR == block_id)
                 goto error_exit;
+
+            /*
+             * According to LFU policy, the row ref count should be set to
+             * the ref count of the block being evicted and the evicted block 
+             * ref count should be reset.
+             */
+            tagstore->set_ref_count[line->index] = 
+                tagstore->tag_data[tag_index + block_id].ref_count;
+            tagstore->tag_data[tag_index + block_id].ref_count = 0;
+            
+#ifdef DBG_ON
+            printf("set_ref_count %u, tag_ref_count %u\n",
+                    tagstore->set_ref_count[line->index],
+                    tagstore->tag_data[tag_index + block_id].ref_count);
+#endif /* DBG_ON */
             break;
 
         default:
@@ -674,7 +737,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
     cache_tag_data_t    *tag_data = NULL;
     cache_tagstore_t    *tagstore = NULL;
 
-    /* Fetch the current time to be used for tag age. */
+    /* Fetch the current time to be used for tag age (for LRU). */
     curr_age = util_get_curr_time(); 
 
     tagstore = cache->tagstore;
@@ -696,6 +759,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
          */
         tag_data[block_id].valid = 1;
         tag_data[block_id].age = curr_age;
+        tag_data[block_id].ref_count += 1;
         if (read_flag) {
             cache->stats.num_read_hits += 1;
         } else {
@@ -731,6 +795,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         cache->stats.num_blk_mem_traffic += 1;
         tag_data[block_id].valid = 1;
         tag_data[block_id].age = curr_age;
+        tag_data[block_id].ref_count = 
+            (util_get_block_ref_count(tagstore, line) + 1);
         if (read_flag) {
             cache->stats.num_read_misses += 1;
         } else {
@@ -764,6 +830,15 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         cache->stats.num_blk_mem_traffic += 1;
         tag_data[block_id].valid = 1;
         tag_data[block_id].age = curr_age;
+        tag_data[block_id].ref_count = 
+            (util_get_block_ref_count(tagstore, line) + 1);
+
+#ifdef DBG_ON
+        printf("set %u, block %u, tag 0x%x, block_ref_count %u\n",
+                line->index, block_id, tags[block_id], 
+                tag_data[block_id].ref_count);
+#endif /* DBG_ON */
+
         if (read_flag) {
             cache->stats.num_read_misses += 1;
         } else {

@@ -55,7 +55,8 @@ typedef struct cache_tag_data__ {
     uint32_t        index;                  /* index of this tag        */
     uint32_t        blk_id;                 /* id of this block         */
 #endif
-    uint64_t        age;                    /* age of this block        */
+    uint64_t        age;                    /* age of this block (LRU)  */
+    uint32_t        ref_count;              /* ref. count (LFU)         */
     uint8_t         valid;                  /* valid bit of the block   */
     uint8_t         dirty;                  /* dirty bit of the block   */
 } cache_tag_data_t;
@@ -72,6 +73,7 @@ typedef struct cache_tagstore__ {
     uint32_t            *index;                 /* ptr to tag indices       */
     uint32_t            *tags;                  /* ptr to tag array         */
     cache_tag_data_t    *tag_data;              /* ptr to tag stats         */
+    uint32_t            *set_ref_count;         /* row-wise ref count (LFU) */
 } cache_tagstore_t;
 
 /* Cache statistics data structure */

@@ -159,6 +159,25 @@ util_get_curr_time(void)
 
 
 /*************************************************************************** 
+ * Name:    util_get_block_ref_count
+ *
+ * Desc:    Returns the ref. count of the set where the block is present.
+ *
+ * Params:  
+ *  tagstore    ptr to the tagstore containing the block
+ *  line        cache line containing the index 
+ *
+ * Returns: uint32_t
+ *  Current ref count of the set containing the block.
+ **************************************************************************/
+inline uint32_t
+util_get_block_ref_count(cache_tagstore_t *tagstore, cache_line_t *line)
+{
+    return (tagstore->set_ref_count[line->index]);
+}
+
+
+/*************************************************************************** 
  * Name:    cache_util_is_block_dirty
  *
  * Desc:    Checks whether the given block is dirty or not
@@ -443,23 +462,27 @@ cache_util_print_tagstore(cache_generic_t *cache)
 void
 cache_util_print_debug_data(cache_generic_t *cache, cache_line_t *line)
 {
+    char                *dirty_str = NULL;
     uint32_t            *tags = NULL;
     uint32_t            num_blocks = 0;
     uint32_t            block_id = 0;
     uint32_t            tag_index = 0;
     cache_tagstore_t    *tagstore = NULL;
+    cache_tag_data_t    *tag_data = NULL;
 
     tagstore = cache->tagstore;
     num_blocks = tagstore->num_blocks_per_set;
     tag_index = (line->index * num_blocks);
     tags = &tagstore->tags[tag_index];
+    tag_data = &tagstore->tag_data[tag_index];
 
     dprint("Changed set %u: ", line->index);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
+        dirty_str = ((tag_data[block_id].dirty) ? "D" : "");
         if (tags[block_id])
-            dprint("%8x", tags[block_id]);
+            dprint("%8x %s", tags[block_id], dirty_str);
         else
-            dprint("%8s", "-");
+            dprint("%8s %s", "-", dirty_str);
     }
     dprint("\n");
 
