@@ -329,6 +329,7 @@ void
 cache_print_sim_data(cache_generic_t *cache)
 {
     uint32_t            index = 0;
+    uint32_t            tag_index = 0;
     uint32_t            block_id = 0;
     uint32_t            num_sets = 0;
     uint32_t            num_blocks_per_set = 0;
@@ -342,8 +343,9 @@ cache_print_sim_data(cache_generic_t *cache)
 
     dprint("\n===== L1 contents =====\n");
     for (index = 0; index < num_sets; ++index) {
-        tags = &tagstore->tags[index];
-        tag_data = &tagstore->tag_data[index];
+        tag_index = (index * num_blocks_per_set);
+        tags = &tagstore->tags[tag_index];
+        tag_data = &tagstore->tag_data[tag_index];
         dprint("set%4u: ", index);
         
         for (block_id = 0; block_id < num_blocks_per_set; 
@@ -391,13 +393,23 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
     tag_index = (line->index * num_blocks);
     tag_data = &tagstore->tag_data[tag_index];
 
-    for (block_id = 0; block_id < num_blocks; ++block_id) {
+    for (block_id = 0, min_age = tag_data[block_id].age; 
+            block_id < num_blocks; ++block_id) {
         if ((tag_data[block_id].valid) && tag_data[block_id].age < min_age) {
             min_block_id = block_id;
             min_age = tag_data[block_id].age;
         }
     }
-    
+
+#if 0
+    printf("LRU index %u\n", line->index);
+    for (block_id = 0; block_id < num_blocks; ++block_id) {
+        printf("    block %u, valid %u, age %lu\n",
+                block_id, tag_data[block_id].valid, tag_data[block_id].age);
+    }
+    printf("min_block %u, min_age %lu\n", min_block_id, min_age);
+#endif
+
     return min_block_id;
 
 error_exit:
@@ -438,8 +450,8 @@ cache_get_lfu_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
  *  line        ptr to the decoded cache line
  *
  * Returns: int32_t
- *          ID of the frist available blocl
- *          CAHCE_RV_ERR if not such block is available
+ *          ID of the frist available (invalid) block
+ *          CAHCE_RV_ERR if no such block is available
  **************************************************************************/
 int32_t
 cache_get_first_invalid_block(cache_tagstore_t *tagstore, cache_line_t *line)
@@ -555,6 +567,9 @@ cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line,
     cache->stats.num_write_backs += 1;
     cache->stats.num_blk_mem_traffic += 1;
     tag_data[block_id].dirty = 0;
+
+    dprint_info("writing dirty block, index %u, block %u to next level "    \
+            "due to eviction\n", line->index, block_id);
 
     /* dan_todo: add code for handling dirty evicts. */
 
@@ -687,8 +702,11 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
             cache->stats.num_write_hits += 1;
             
             /* Set the block to be dirty only for WBWA write policy. */
-            if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
+            if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache)) {
                 tag_data[block_id].dirty = 1;
+             } else {
+                cache->stats.num_blk_mem_traffic += 1;
+             }
         }
         dprint_info("tag 0x%x already present in index %u, block %u\n",
                 line->tag, line->index, block_id);
@@ -703,6 +721,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         if ((!read_flag) && 
                 (CACHE_WRITE_PLCY_WTNA == CACHE_GET_WRITE_POLICY(cache))) {
             /* Don't bother for writes when the policy is set to WTNA. */
+            cache->stats.num_write_misses += 1;
+            cache->stats.num_blk_mem_traffic += 1;
             goto exit;
         }
 
@@ -732,6 +752,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         if ((!read_flag) && 
                 (CACHE_WRITE_PLCY_WTNA == CACHE_GET_WRITE_POLICY(cache))) {
             /* Don't bother with write misses for WTNA write policy. */
+            cache->stats.num_write_misses += 1;
+            cache->stats.num_blk_mem_traffic += 1;
             goto exit;
         }
 
@@ -753,7 +775,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
     }
 
 exit:
-    cache_util_print_debug_data(cache, line);
+    //cache_util_print_debug_data(cache, line);
     return;
 }
 

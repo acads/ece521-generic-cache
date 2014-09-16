@@ -441,9 +441,13 @@ cache_util_print_debug_data(cache_generic_t *cache, cache_line_t *line)
     tag_index = (line->index * num_blocks);
     tags = &tagstore->tags[tag_index];
 
-    dprint("debug_set %u: ", line->index);
-    for (block_id = 0; block_id < num_blocks; ++block_id)
-        dprint("%8x", tags[block_id]);
+    dprint("Changed set %u: ", line->index);
+    for (block_id = 0; block_id < num_blocks; ++block_id) {
+        if (tags[block_id])
+            dprint("%8x", tags[block_id]);
+        else
+            dprint("%8s", "-");
+    }
     dprint("\n");
 
     return;
