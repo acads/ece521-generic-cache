@@ -139,6 +139,19 @@ util_get_curr_time(void)
     struct timeval  curr_time;
 
     memset(&curr_time, 0, sizeof(curr_time));
+
+#ifndef DBG_ON
+    /*
+     * An ugly hack to prevent the same-time for different references due to
+     * a usecond timer bug in non-QA code. The perfomance is still reasonable;
+     * i.e., under 7s for an input trace of 100k references.
+     *
+     * QA code uses a lot of dprints, thus the time interval between two
+     * consecutinve references of a same block is substantially higher than
+     * in non-QA code.
+     */
+    usleep(1);
+#endif /* !DBG_ON */
     gettimeofday(&curr_time, NULL);
 
     return ((curr_time.tv_sec * 1000000) + curr_time.tv_usec);
