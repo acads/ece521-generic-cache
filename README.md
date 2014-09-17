@@ -52,7 +52,7 @@ A sample output of the cache simulator would look similar to what iss given
 below.
 
 ---------------simulator output start------------------------
-    
+
       ===== Simulator configuration =====
       L1_BLOCKSIZE:                    16   
       L1_SIZE:                      16384
@@ -61,7 +61,7 @@ below.
       L1_WRITE_POLICY:                  0    
       trace_file:   ../docs/gcc_trace.txt
       ===================================
-    
+      
       ===== L1 contents =====
       set   0:    10015 D
       set   1:    10015 D
@@ -83,7 +83,7 @@ below.
       set1021:    10014 D
       set1022:    10014 D
       set1023:    10014 D
-    
+      
       ====== Simulation results (raw) ======
       a. number of L1 reads:           63640
       b. number of L1 read misses:      2138 
@@ -92,7 +92,7 @@ below.
       e. L1 miss rate:                0.0672
       f. number of writebacks from L1:  3939 
       g. total memory traffic:         10656
-    
+      
       ==== Simulation results (performance) ==== 
       1. average access time:         1.7570 ns
     
