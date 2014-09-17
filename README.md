@@ -1,7 +1,9 @@
 ece521-mp0
 ==========
-Fall 2014 ECE 521
-Projec 1A - Generic Cache Implementation
+Fall 2014, ECE 521 - Computer Design Techniques
+Project 1A - Generic Cache Implementation
+
+Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
 
 
 Compilation
@@ -10,8 +12,9 @@ Compilation
     2, Issue "make clean && make" to build a non-QA version on the build. This
        should be used for final testing.
     3. For debug purposes (which has debug traces, debug symbols and profiling
-       enabled), issue, "make clean && make DEBUG=DBG_ON".
-    4. The executable generated will be named 'sim_cache'.
+       enabled), issue, "make clean && make DEBUG="-g -pg -DDBG_ON"".
+    4. In both cases, 2 & 3, the executable generated will be named 
+       'sim_cache'.
 
 
 Running the Generic Cache Simulator

@@ -1,8 +1,13 @@
-/* adhanas */
-
-/*
- * Misc cache utils constants, macros and util function declarations.
+/* 
+ * ECE 521 - Computer Design Techniques, Fall 2014
+ * Project 1A - Generic Cache Implementation
+ *
+ * This module contains all required util macros and util function 
+ * declrations for the cache implementation.
+ *
+ * Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
  */
+
 
 #ifndef CACHE_UTILS_H_
 #define CACHE_UTILS_H_

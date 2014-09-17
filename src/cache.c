@@ -1,10 +1,13 @@
-/* adhanas */
-
 /* 
  * ECE 521 - Computer Design Techniques, Fall 2014
- * Project 1A - Generic cache implementation.
+ * Project 1A - Generic Cache Implementation
  *
- * Author: Aravindhan Dhanasekaran
+ * This module contains the majority of the cache implementation, like
+ * cache and tagstore init with corresponding cleanup routines, 
+ * replacement policy implementations (LRU and LFU), cache lookup
+ * and so on.
+ *
+ * Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
  */
 
 #include <stdio.h>

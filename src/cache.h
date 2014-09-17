@@ -1,7 +1,11 @@
-/* adhanas */
-
 /* 
- * Generic cache data structures and function declarations.
+ * ECE 521 - Computer Design Techniques, Fall 2014
+ * Project 1A - Generic Cache Implementation
+ *
+ * This module contains almost all required data structures, constants and
+ * function declrations for the cache implementation.
+ *
+ * Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
  */
 
 #ifndef CACHE_H_
@@ -138,3 +142,4 @@ cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line,
         uint32_t block_id);
 
 #endif /* CACHE_H_ */
+
