@@ -1,14 +1,16 @@
 /* adhanas */
 
 /* 
- * Generic cache implementation.
+ * ECE 521 - Computer Design Techniques, Fall 2014
+ * Project 1A - Generic cache implementation.
+ *
+ * Author: Aravindhan Dhanasekaran
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <sys/time.h>
 #include "cache.h"
 #include "cache_utils.h"
 
@@ -64,18 +66,18 @@ exit:
  *              index. 
  *              1D_index = block_index + (set_index * blocks_per_set)
  *
- *                          blocks-->
- *                     0      1      2      3 
+ *                             blocks-->
+ *                      0      1      2      3 
  *                   +------+------+------+------+ 
- *                   |      |      |      |      |  s
+ *                0  |      |      |      |      |  s
  *                   |      |      |      |      |  e
- *                 0 +------+------+------+------+  t
- *                   |      |      |    * |      |  s
+ *                   +------+------+------+------+  t
+ *                1  |      |      |    * |      |  s
  *                   |      |      |      |      |  |
- *                 1 +------+----- +------+------+  |
- *                   |      |      |      |      |  v
+ *                   +------+----- +------+------+  |
+ *                2  |      |      |      |      |  v
  *                   |      |      |      |      |
- *                 2 +------+------+------+------+
+ *                   +------+------+------+------+
  *
  *              To get to the * block, 2D index would be [1][2]
  *              eg., 1D_index = 2 + (1 * 4) = 6
@@ -106,7 +108,7 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
      * # of sets = (cache_size / (set_assoc * block_size))
      */
     tagstore->num_sets = num_sets = 
-        (cache->size / (cache->set_assoc * cache->blk_size));
+        ((cache->size) / (cache->set_assoc * cache->blk_size));
 
     /*
      * blk_offset_bits = log_b2 (blk_size)
@@ -118,7 +120,8 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
         util_log_base_2(cache->blk_size);
     tagstore->num_index_bits = index_bits = 
         util_log_base_2(num_sets);
-    tagstore->num_tag_bits = tag_bits = 32 - index_bits - blk_offset_bits;
+    tagstore->num_tag_bits = tag_bits = (CACHE_ADDR_32BIT_LEN - 
+            index_bits - blk_offset_bits);
     tagstore->num_blocks_per_set = num_blocks_per_set = cache->set_assoc;
     tagstore->num_blocks = num_sets * num_blocks_per_set;
 
@@ -143,17 +146,9 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
         goto fatal_exit;
     }
 
-    /* Initialize indices and block IDs . */
-    for (iter = 0; iter < num_sets; ++iter) {
+    /* Initialize indices. */
+    for (iter = 0; iter < num_sets; ++iter)
         tagstore->index[iter] = iter;
-
-#if 0
-        for (blk_id = 0; blk_id < tagstore->num_blocks; ++blk_id) {
-            tagstore->tag_data[iter][blk_id].index = iter;
-            tagstore->tag_data[iter][blk_id].blk_id = blk_id;
-        }
-#endif
-    }
 
     /* Assoicate the tagstore to the given cache and vice-versa. */
     cache->tagstore = tagstore;
@@ -190,6 +185,8 @@ cache_cleanup(cache_generic_t *cache)
         goto exit;
     }
 
+    /* First cleanup the tagstore and then the actual cache. */
+    cache_tagstore_cleanup(cache, cache->tagstore);
     memset(cache, 0, sizeof(*cache));
 
 exit:
@@ -216,10 +213,19 @@ cache_tagstore_cleanup(cache_generic_t *cache, cache_tagstore_t *tagstore)
         goto exit;
     }
 
-    free(tagstore->index);
-    free(tagstore->tags);
-    free(tagstore->tag_data);
-    free(tagstore->set_ref_count);
+    if (tagstore->index)
+        free(tagstore->index);
+
+    if (tagstore->tags)
+        free(tagstore->tags);
+
+    if (tagstore->tag_data)
+        free(tagstore->tag_data);
+
+    if (tagstore->set_ref_count)
+        free(tagstore->set_ref_count);
+
+    memset(tagstore, 0, sizeof(*tagstore));
 
 exit:
     return;
@@ -239,7 +245,6 @@ exit:
 void
 cache_print_sim_config(cache_generic_t *cache)
 {
-    dprint("\n");
     dprint("  ===== Simulator configuration =====\n");
     dprint("  L1_BLOCKSIZE: %21u\n", cache->blk_size);
     dprint("  L1_SIZE: %26u\n", cache->size);
@@ -850,7 +855,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
     }
 
 exit:
-    //cache_util_print_debug_data(cache, line);
+#ifdef DBG_ON
+    cache_util_print_debug_data(cache, line);
+#endif /* DBG_ON */
     return;
 }
 
@@ -966,11 +973,15 @@ main(int argc, char **argv)
     if (trace_fptr) 
         fclose(trace_fptr);
 
+    cache_cleanup(&g_cache);
+
     return 0;
 
 error_exit:
     if (trace_fptr)
         fclose(trace_fptr);
+
+    cache_cleanup(&g_cache);
 
     return -1;
 }

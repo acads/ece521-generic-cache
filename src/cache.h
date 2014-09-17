@@ -19,6 +19,7 @@
 #define CACHE_LEVEL_2           2
 #define CACHE_LEVEL_3           3
 #define CACHE_NAME_LEN          24
+#define CACHE_ADDR_32BIT_LEN    32
 #define CACHE_TRACE_FILE_LEN    256
 
 #define CACHE_REPL_PLCY_LRU     0
@@ -51,10 +52,6 @@ typedef struct cache_line__ {
 } cache_line_t;
 
 typedef struct cache_tag_data__ {
-#if 0
-    uint32_t        index;                  /* index of this tag        */
-    uint32_t        blk_id;                 /* id of this block         */
-#endif
     uint64_t        age;                    /* age of this block (LRU)  */
     uint32_t        ref_count;              /* ref. count (LFU)         */
     uint8_t         valid;                  /* valid bit of the block   */
