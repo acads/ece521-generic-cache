@@ -1,11 +1,10 @@
-
   ===== Simulator configuration =====
   L1_BLOCKSIZE:                    32
   L1_SIZE:                       1024
   L1_ASSOC:                         4
   L1_REPLACEMENT_POLICY:            1
   L1_WRITE_POLICY:                  1
-  trace_file:    ../docs/go_trace.txt
+  trace_file:            go_trace.txt
   ===================================
 
 ===== L1 contents =====
@@ -28,4 +27,4 @@ set   7:   40040c   4004df   4004e0   400320
   g. total memory traffic:         44280
 
   ==== Simulation results (performance) ====
-  1. average access time:         8.4986 ns
+  1. average access time:         8.4985 ns

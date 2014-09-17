@@ -1,11 +1,10 @@
-
   ===== Simulator configuration =====
   L1_BLOCKSIZE:                    32
   L1_SIZE:                       4096
   L1_ASSOC:                         4
   L1_REPLACEMENT_POLICY:            0
   L1_WRITE_POLICY:                  1
-  trace_file:  ../docs/perl_trace.txt
+  trace_file:          perl_trace.txt
   ===================================
 
 ===== L1 contents =====
@@ -52,4 +51,4 @@ set  31:   100074   1000b3   100077   1000b1
   g. total memory traffic:         34632
 
   ==== Simulation results (performance) ====
-  1. average access time:         2.8537 ns
+  1. average access time:         2.8532 ns

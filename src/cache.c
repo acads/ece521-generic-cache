@@ -279,6 +279,7 @@ cache_print_sim_stats(cache_generic_t *cache)
     double          miss_penalty = 0.0;
     double          avg_access_time = 0.0;
     double          total_access_time = 0.0;
+    double          b_512kb = (512 * 1024);
     cache_stats_t   *stats = NULL;
 
     stats = &(cache->stats);
@@ -297,15 +298,18 @@ cache_print_sim_stats(cache_generic_t *cache)
      */
     miss_rate =  ((double) (stats->num_read_misses + stats->num_write_misses) /
                 (double) (stats->num_reads + stats->num_writes));
-    hit_time = (0.25 + (2.5 * (((double) cache->size) / 512000)) + (0.025 *
+    hit_time = (0.25 + (2.5 * (((double) cache->size) / b_512kb)) + (0.025 *
             (((double) cache->blk_size) / 16)) + (0.025 * cache->set_assoc));
     miss_penalty = (20 + (0.5 * (((double) cache->blk_size) / 16)));
     total_access_time = (((stats->num_reads + stats->num_writes) * hit_time) +
             ((stats->num_read_misses + stats->num_write_misses) * 
              miss_penalty));
+#ifndef DBG_ON
     avg_access_time = (hit_time + (miss_rate * miss_penalty));
-    //avg_access_time = (total_access_time / 
-      //      (stats->num_reads + stats->num_writes));
+#else
+    avg_access_time = (total_access_time / 
+            (stats->num_reads + stats->num_writes));
+#endif /* DBG_ON */
 
     dprint("\n");
     dprint("  ====== Simulation results (raw) ======\n");

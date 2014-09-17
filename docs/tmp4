@@ -1,11 +1,10 @@
-
   ===== Simulator configuration =====
   L1_BLOCKSIZE:                    64
   L1_SIZE:                       8192
   L1_ASSOC:                         2
   L1_REPLACEMENT_POLICY:            1
   L1_WRITE_POLICY:                  0
-  trace_file:   ../docs/gcc_trace.txt
+  trace_file:           gcc_trace.txt
   ===================================
 
 ===== L1 contents =====
@@ -84,4 +83,4 @@ set  63:    4001c    40032 D
   g. total memory traffic:          8003
 
   ==== Simulation results (performance) ====
-  1. average access time:         1.6694 ns
+  1. average access time:         1.6684 ns

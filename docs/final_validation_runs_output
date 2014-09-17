@@ -1,11 +1,17 @@
-/* adhanas */
 
-ECE 521 - Projec 1A - Generic Cache Implementation
+ECE 521 - Computer Design Techniques, Fall 2014
+Project 1A - Generic Cache Implementation
 
-Validation runs for given traces
+This trace file contains the output of my cache simulator program for the 
+various validation runs given by the course TAs. In all 5 cases, the output of
+my simulator matches that of the TAs. 
+
+Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
+
 _______________________________________________________________________________
-[adhanas@grendel1 src] $ date
-Tue Sep 16 22:55:43 EDT 2014
+[adhanas@grendel10 src] $ date 
+Wed Sep 17 09:23:02 EDT 2014
+
 [adhanas@grendel1 src] $ head -n 8 ../docs/ValidationRun1.txt 
   ===== Simulator configuration =====
   L1_BLOCKSIZE:                    16
@@ -15,27 +21,20 @@ Tue Sep 16 22:55:43 EDT 2014
   L1_WRITE_POLICY:                  0
   trace_file:           gcc_trace.txt
   ===================================
-[adhanas@grendel1 src] $ time ./sim_cache 16 16384 1 0 0 ../docs/gcc_trace.txt > tmp1
 
-real	0m5.572s
-user	0m0.335s
-sys	0m0.025s
-[adhanas@grendel1 src] $ diff -iw ../docs/ValidationRun1.txt tmp1
-0a1
-> 
-7c8
-<   trace_file:           gcc_trace.txt
----
->   trace_file:   ../docs/gcc_trace.txt
-1046c1047
-<   1. average access time:         1.7551 ns
-\ No newline at end of file
----
->   1. average access time:         1.7570 ns
+[adhanas@grendel10 src] $ time ./sim_cache 16 16384 1 0 0 gcc_trace.txt > tmp1
+
+real    0m5.491s
+user    0m0.243s
+sys 0m0.051s
+
+[adhanas@grendel10 src] $ diff -iw ../docs/ValidationRun1.txt tmp1
+
 
 _______________________________________________________________________________
-[adhanas@grendel1 src] $ date
-Tue Sep 16 22:54:41 EDT 2014
+[adhanas@grendel10 src] $ date
+Wed Sep 17 09:25:07 EDT 2014
+
 [adhanas@grendel1 src] $ head -n 8 ../docs/ValidationRun2.txt 
   ===== Simulator configuration =====
   L1_BLOCKSIZE:                   128
@@ -45,28 +44,20 @@ Tue Sep 16 22:54:41 EDT 2014
   L1_WRITE_POLICY:                  1
   trace_file:            go_trace.txt
   ===================================
-[adhanas@grendel1 src] $ time ./sim_cache 128 2048 8 0 1 ../docs/go_trace.txt > tmp2
 
-real	0m5.569s
-user	0m0.337s
-sys	0m0.019s
-[adhanas@grendel1 src] $ diff -iw ../docs/ValidationRun2.txt tmp2
-0a1
-> 
-7c8
-<   trace_file:            go_trace.txt
----
->   trace_file:    ../docs/go_trace.txt
-24c25
-<   1. average access time:         7.1539 ns
-\ No newline at end of file
----
->   1. average access time:         7.1542 ns
+[adhanas@grendel10 src] $ time ./sim_cache 128 2048 8 0 1 go_trace.txt > tmp2
+
+real    0m5.491s
+user    0m0.232s
+sys 0m0.067s
+
+[adhanas@grendel10 src] $ diff -iw ../docs/ValidationRun2.txt tmp2
 
 
 _______________________________________________________________________________
-[adhanas@grendel1 src] $ date
-Tue Sep 16 22:53:20 EDT 2014
+[adhanas@grendel10 src] $ date
+Wed Sep 17 09:26:39 EDT 2014
+
 [adhanas@grendel1 src] $ head -n 8 ../docs/ValidationRun3.txt 
   ===== Simulator configuration =====
   L1_BLOCKSIZE:                    32
@@ -76,29 +67,20 @@ Tue Sep 16 22:53:20 EDT 2014
   L1_WRITE_POLICY:                  1
   trace_file:          perl_trace.txt
   ===================================
-[adhanas@grendel1 src] $ time ./sim_cache 32 4096 4 0 1 ../docs/perl_trace.txt > tmp3
 
-real	0m5.598s
-user	0m0.361s
-sys	0m0.013s
-[adhanas@grendel1 src] $ diff -iw ../docs/ValidationRun3.txt tmp3
-0a1
-> 
-7c8
-<   trace_file:          perl_trace.txt
----
->   trace_file:  ../docs/perl_trace.txt
-54c55
-<   1. average access time:         2.8532 ns
-\ No newline at end of file
----
->   1. average access time:         2.8537 ns
+[adhanas@grendel10 src] $ time ./sim_cache 32 4096 4 0 1 perl_trace.txt > tmp3
+
+real    0m5.492s
+user    0m0.221s
+sys 0m0.075s
+
+[adhanas@grendel10 src] $ diff -iw ../docs/ValidationRun3.txt tmp3
 
 
 _______________________________________________________________________________
+[adhanas@grendel10 src] $ date
+Wed Sep 17 09:28:02 EDT 2014
 
-[adhanas@grendel1 src] $ date
-Tue Sep 16 22:50:54 EDT 2014
 [adhanas@grendel1 src] $ head -n 8 ../docs/ValidationRun4.txt 
   ===== Simulator configuration =====
   L1_BLOCKSIZE:                    64
@@ -108,28 +90,19 @@ Tue Sep 16 22:50:54 EDT 2014
   L1_WRITE_POLICY:                  0
   trace_file:           gcc_trace.txt
   ===================================
-[adhanas@grendel1 src] $ time ./sim_cache 64 8192 2 1 0 ../docs/gcc_trace.txt > tmp4
 
-real	0m5.565s
-user	0m0.336s
-sys	0m0.018s
-[adhanas@grendel1 src] $ diff -iw ../docs/ValidationRun4.txt tmp4
-0a1
-> 
-7c8
-<   trace_file:           gcc_trace.txt
----
->   trace_file:   ../docs/gcc_trace.txt
-86c87
-<   1. average access time:         1.6684 ns
-\ No newline at end of file
----
->   1. average access time:         1.6694 ns
+[adhanas@grendel10 src] $ time ./sim_cache 64 8192 2 1 0 gcc_trace.txt > tmp4
+
+real    0m5.504s
+user    0m0.220s
+sys 0m0.071s
+
+[adhanas@grendel10 src] $ diff -iw ../docs/ValidationRun4.txt tmp4
 
 
 _______________________________________________________________________________
-[adhanas@grendel1 src] $ date
-Tue Sep 16 22:49:12 EDT 2014
+[adhnas@grendel10 src] $ date
+Wed Sep 17 09:29:02 EDT 2014
 
 [adhanas@grendel1 src] $ head -n 8 ../docs/ValidationRun5.txt 
   ===== Simulator configuration =====
@@ -141,23 +114,14 @@ Tue Sep 16 22:49:12 EDT 2014
   trace_file:            go_trace.txt
   ===================================
 
-[adhanas@grendel1 src] $ time ./sim_cache 32 1024 4 1 1 ../docs/go_trace.txt > tmp5
+[adhanas@grendel10 src] $ time ./sim_cache 32 1024 4 1 1 go_trace.txt > tmp5
 
-real	0m5.566s
-user	0m0.339s
-sys	0m0.015s
+real    0m5.498s
+user    0m0.234s
+sys 0m0.060s
 
-[adhanas@grendel1 src] $ diff -iw ../docs/ValidationRun5.txt tmp5 
-0a1
-> 
-7c8
-<   trace_file:            go_trace.txt
----
->   trace_file:    ../docs/go_trace.txt
-30c31
-<   1. average access time:         8.4985 ns
-\ No newline at end of file
----
->   1. average access time:         8.4986 ns
+[adhanas@grendel10 src] $ diff -iw ../docs/ValidationRun5.txt tmp5
+
 
 _______________________________________________________________________________
+
