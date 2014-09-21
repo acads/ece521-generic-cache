@@ -95,7 +95,7 @@ typedef struct cache_generic__ {
     char                name[CACHE_NAME_LEN];   /* name - L1, L2..          */
     char                trace_file[CACHE_TRACE_FILE_LEN];
     uint8_t             level;                  /* 1, 2, 3 ..               */
-    uint8_t             set_assoc;              /* level of associativity   */
+    uint16_t            set_assoc;              /* level of associativity   */
     uint32_t            blk_size;               /* cache block size         */
     uint32_t            size;                   /* total cache size         */
     uint8_t             repl_plcy;              /* replacement policy       */
