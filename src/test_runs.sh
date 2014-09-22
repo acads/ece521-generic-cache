@@ -1,5 +1,16 @@
 #!/bin/bash
 
+#
+# ECE 521 - Computer Design Techniques, Fall 2014
+# Project 1A - Generic Cache Implementation
+#
+# Shell script to automate sim_cache runs against TA given validation traces
+# and to compare the sime_cache output with TA given validatiaon runs.
+# 
+# Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
+# 
+
+
 red_bold='\e[91m \e[1m'
 no_color='\e[0m'
 
