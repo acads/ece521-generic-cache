@@ -1,0 +1,23 @@
+  ===== Simulator configuration =====
+  L1_BLOCKSIZE:64
+  L1_SIZE:8192
+  L1_ASSOC:128
+  L1_REPLACEMENT_POLICY:1
+  L1_WRITE_POLICY:0
+  trace_file:gcc_trace.txt
+  ===================================
+
+===== L1 contents =====
+set    0:    1ec0d3d D    1000d63 1ec0d37 D    10007bc 1000fc7 D    1001462 D    1004e77 D    1004e24 D    100004d 1ec0d31 D    10009d9 10007ca 37e13 1ec0d35 D    1ec0d32 D    1000e88 D    10007d2 1000c50 1ec0d3e D    1ec0d3f D    10009d7 1001582 D    100145d D    100073c 1ec0d33 D    1001460 D    100145c D    1000cc0 D    10007be 1000d5e D    1001583 D    1001461 D    100073d 1004da0 D    100157d D    1001463 D    1001459 D    100146c D    1000c6f D    1001119 D    1000e09 D    1001466 D    100073e 1001470 D    1001561 D    1000d56 10007cc 10009d5 1001454 D    10007d4 1000d54 1ec0d13 D    10007cb 1001467 D    100073f 10007d3 1000e08 D    1001457 D    1000cbf D    1001469 D    1000a49 10008b9 D    100004a 100146a D    10011fa 1ec0d45 D    1001471 D    100145b D    100145e D    10011fe 1ec0ce4 D    100146e D    1001209 100146b D    1000c53 108d552 D    1001456 D    1001562 D    100157f D    10007d8 1000a4b 10007bf 10009d6 37e19 1ec0ce8 D    1000d55 1000d94 D    100007e 1000f96 1000bd2 D    100146f D    1000c6e D    1000d93 D    10011fd 1000a4a 1ec0ce5 D    1001588 D    1000d3e D    100146d D    10007d5 1000cc1 D    1001465 D    1001458 D    1000c7e D    10010a5 100004b 1001464 D    100004c 1000d5d D    1ec0d42 D    1000c51 1000c52 100119b D    1000a4c 1000a98 D    1001472 D    1ec0d3c D    10011fc 1001468 D    108d544 100145f D    10011fb 1ec0d40 D    10009d8 100145a D    1001455 D    108d546 1000c7a D    
+
+  ====== Simulation results (raw) ======
+  a. number of L1 reads:63640
+  b. number of L1 read misses:3094
+  c. number of L1 writes:36360
+  d. number of L1 write misses:1673
+  e. L1 miss rate:0.0477
+  f. number of writebacks from L1:1831
+  g. total memory traffic:6598
+
+  ==== Simulation results (performance) ====
+  1. average access time:4.5987 ns
