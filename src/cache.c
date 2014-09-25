@@ -72,19 +72,16 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     
     victim_size = atoi(input[arg_iter++]);
     g_victim_present = (victim_size ? TRUE : FALSE);
-    dprint_info("victim size %u\n", victim_size);
-    dprint_info("func victim size %u\n", cache_util_is_victim_present());
 
     l2_size = atoi(input[arg_iter++]);
     l2_set_assoc = atoi(input[arg_iter++]);
     g_l2_present = (l2_size ? TRUE : FALSE);
-    dprint_info("l2_present %u\n", l2_size);
-    dprint_info("func l2_present %u\n", cache_util_is_l2_present());
     
     trace_file = input[arg_iter++];
 
     /* Init L1 cache. */
     strncpy(l1_cache->name, g_l1_name, (CACHE_NAME_LEN - 1));
+    strncpy(l1_cache->trace_file, trace_file, (CACHE_TRACE_FILE_LEN - 1));
     l1_cache->size = l1_size;
     l1_cache->level = CACHE_LEVEL_1;
     l1_cache->set_assoc = l1_set_assoc;
@@ -848,6 +845,7 @@ main(int argc, char **argv)
         cache_print_usage(argv[0]);
         goto error_exit;
     }
+    trace_fpath = argv[argc - 1];
 
     memset(&mem_ref, 0, sizeof(mem_ref));
 
@@ -866,6 +864,7 @@ main(int argc, char **argv)
     cache_print_cache_data(&g_l1_cache);
     if (cache_util_is_l2_present())
         cache_print_cache_data(&g_l2_cache);
+
     return 0;
 #endif /* DBG_ON */
 
@@ -873,6 +872,7 @@ main(int argc, char **argv)
     trace_fptr = fopen(trace_fpath, "r");
     if (!trace_fptr) {
         printf("Error: Unable to open trace file %s.\n", trace_fpath);
+        dprint_err("unable to open trace file %s.\n", trace_fpath);
         goto error_exit;
     }
 
