@@ -26,9 +26,67 @@ cache_generic_t     g_l1_cache;             /* primary l1 cache             */
 cache_tagstore_t    g_l1_cache_ts;          /* primary cache tagstore       */
 cache_generic_t     g_l2_cache;             /* l2 cache                     */
 cache_tagstore_t    g_l2_cache_ts;          /* l2 cache tagstore            */
+cache_generic_t     *g_cache;               /* currently under processing   */
+cache_tagstore_t    *g_ts;                  /* currently under processing   */
 const char          *g_dirty = "D";         /* used to denote dirty blocks  */
 const char          *g_l1_name = "L1 cache";
 const char          *g_l2_name = "L2 cache";
+
+
+/*************************************************************************** 
+ * Name:    cache_set_current_cache
+ *
+ * Desc:    Points the global current cache to the passed cache. Likewise 
+ *          for tagstore.
+ *
+ * Params:  
+ *  cache       ptr to the cache to be set as current cache
+ *  tagstore    ptr to the ts to be set as current ts
+ *
+ * Returns: Nothing
+ **************************************************************************/
+inline void
+cache_set_current_cache(cache_generic_t *cache, cache_tagstore_t *tagstore)
+{
+    g_cache = cache;
+    g_ts = tagstore;
+
+    dprint_info("current active cache changed to %s\n", g_cache->name);
+
+    return;
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_get_current_cache
+ *
+ * Desc:    Fetches a ptr to the current cache under processing 
+ *
+ * Params:  None 
+ *
+ * Returns: Pointer to the currently active cache
+ **************************************************************************/
+inline cache_generic_t *
+cache_get_current_cache(void)
+{
+    return g_cache;
+}
+
+
+/*************************************************************************** 
+ * Name:    cache_get_current_ts
+ *
+ * Desc:    Fetches a ptr to the current tagstore under processing 
+ *
+ * Params:  None 
+ *
+ * Returns: Pointer to the currently active tagstore
+ **************************************************************************/
+inline cache_tagstore_t *
+cache_get_current_tagstore(void)
+{
+    return g_ts;
+}
 
 
 /*************************************************************************** 
@@ -38,10 +96,10 @@ const char          *g_l2_name = "L2 cache";
  *          the user given cache configuration.
  *
  * Params:  
- *  cache       ptr to the cache being initialized
- *  name        name of the cache
- *  trace_file  memory trace file used for simulation (for printing it later)
- *  level       level of the cache (1, 2 and so on)
+ *  l1_cache    ptr to the cache being initialized
+ *  l2_cache    ptr to L2 cache
+ *  num_args    # of input arguments
+ *  input       ptr to input list
  *
  * Returns: Nothing
  **************************************************************************/
@@ -90,6 +148,7 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     l1_cache->prev_cache = NULL;
     l1_cache->next_cache = (cache_util_is_l2_present() ? l2_cache : NULL);
     l1_cache->stats.cache = l1_cache;
+    dprint_info("l1 cache init successful\n");
 
     /* 
      * Force set repl & write policies as they are the only ones 
@@ -111,6 +170,7 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
         l2_cache->next_cache = NULL;
         l2_cache->prev_cache = l1_cache;
         l2_cache->stats.cache = l2_cache;
+        dprint_info("l2 cache init successful\n");
     }
 
 exit:
@@ -882,6 +942,9 @@ main(int argc, char **argv)
      */
     while (fscanf(trace_fptr, "%c %x%c", 
                 &(mem_ref.ref_type), &(mem_ref.ref_addr), &newline) != EOF) {
+        /* All requests start at L1 cache. */
+        cache_set_current_cache(&g_l1_cache, &g_l1_ts);
+
         dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);
         if (!cache_handle_memory_request(&g_l1_cache, &mem_ref)) {

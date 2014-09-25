@@ -151,6 +151,12 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line);
 void
 cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line, 
         uint32_t block_id);
+inline void
+cache_set_current_cache(cache_generic_t *cache, cache_tagstore_t *tagstore);
+inline cache_generic_t *
+cache_get_current_cache(void);
+inline cache_tagstore_t *
+cache_util_get_current_ts();
 
 #endif /* CACHE_H_ */
 
