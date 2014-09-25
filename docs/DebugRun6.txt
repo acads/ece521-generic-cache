@@ -1,0 +1,363 @@
+===== Simulator configuration =====
+BLOCKSIZE:                    32
+L1_SIZE:                      2048
+L1_ASSOC:                     4
+Victim_Cache_SIZE:            0
+L2_SIZE:                      4096
+L2_ASSOC:                     8
+trace_file:                   gcc_trace.txt
+===================================
+DEBUG INFO
+
+
+1. Address 400341a0 WRITE
+MISS L1
+READ FROM L2 400341a0
+MISS L2
+
+2. Address dfcfa8 READ
+MISS L1
+READ FROM L2 dfcfa8
+MISS L2
+
+3. Address 7b034dd4 WRITE
+MISS L1
+READ FROM L2 7b034dd4
+MISS L2
+
+4. Address df7c48 READ
+MISS L1
+READ FROM L2 df7c48
+MISS L2
+
+5. Address 7b034dd4 READ
+HIT L1
+
+6. Address 423aebbc READ
+MISS L1
+READ FROM L2 423aebbc
+MISS L2
+
+7. Address 423aebb8 READ
+HIT L1
+
+8. Address 423aebbc READ
+HIT L1
+
+9. Address 40002634 READ
+MISS L1
+READ FROM L2 40002634
+MISS L2
+
+10. Address 40139dd0 WRITE
+MISS L1
+READ FROM L2 40139dd0
+MISS L2
+
+11. Address 423aeb9c READ
+MISS L1
+READ FROM L2 423aeb9c
+MISS L2
+
+12. Address 40139dd4 WRITE
+HIT L1
+
+13. Address 40138938 WRITE
+MISS L1
+READ FROM L2 40138938
+MISS L2
+
+14. Address 423aeba0 READ
+HIT L1
+
+15. Address 4013893c WRITE
+HIT L1
+
+16. Address 7b034dcc READ
+HIT L1
+
+17. Address df8a70 READ
+MISS L1
+READ FROM L2 df8a70
+MISS L2
+
+18. Address 7b034c50 WRITE
+MISS L1
+READ FROM L2 7b034c50
+MISS L2
+
+19. Address 7b034c68 WRITE
+MISS L1
+READ FROM L2 7b034c68
+MISS L2
+
+20. Address df9f10 READ
+MISS L1
+READ FROM L2 df9f10
+MISS L2
+
+21. Address 7b034da8 WRITE
+MISS L1
+READ FROM L2 7b034da8
+MISS L2
+
+22. Address 7b034dcc READ
+HIT L1
+
+23. Address df8a74 READ
+HIT L1
+
+24. Address 7b034c54 WRITE
+HIT L1
+
+25. Address 7b034c6c WRITE
+HIT L1
+
+26. Address df9f14 READ
+HIT L1
+
+27. Address 7b034dac WRITE
+HIT L1
+
+28. Address 40138938 READ
+HIT L1
+
+29. Address 7b034d90 WRITE
+MISS L1
+READ FROM L2 7b034d90
+MISS L2
+
+30. Address 7b034c68 READ
+HIT L1
+
+31. Address df84d4 READ
+MISS L1
+READ FROM L2 df84d4
+MISS L2
+
+32. Address df84d5 READ
+HIT L1
+
+33. Address df84d6 READ
+HIT L1
+
+34. Address df84d7 READ
+HIT L1
+
+35. Address df84d8 READ
+HIT L1
+
+36. Address df84d9 READ
+HIT L1
+
+37. Address df84da READ
+HIT L1
+
+38. Address df84db READ
+HIT L1
+
+39. Address df84dc READ
+HIT L1
+
+40. Address df84dd READ
+HIT L1
+
+41. Address df84de READ
+HIT L1
+
+42. Address df84df READ
+HIT L1
+
+43. Address df84e0 READ
+MISS L1
+READ FROM L2 df84e0
+MISS L2
+
+44. Address df84e1 READ
+HIT L1
+
+45. Address df84e2 READ
+HIT L1
+
+46. Address df84e3 READ
+HIT L1
+
+47. Address 4013893c READ
+HIT L1
+
+48. Address 7b034d94 WRITE
+HIT L1
+
+49. Address 7b034c6c READ
+HIT L1
+
+50. Address df84e4 READ
+HIT L1
+
+51. Address df84e5 READ
+HIT L1
+
+52. Address df84e6 READ
+HIT L1
+
+53. Address df84e7 READ
+HIT L1
+
+54. Address df84e8 READ
+HIT L1
+
+55. Address df84e9 READ
+HIT L1
+
+56. Address df84ea READ
+HIT L1
+
+57. Address df84eb READ
+HIT L1
+
+58. Address df84ec READ
+HIT L1
+
+59. Address df84ed READ
+HIT L1
+
+60. Address df84ee READ
+HIT L1
+
+61. Address df84ef READ
+HIT L1
+
+62. Address df84f0 READ
+HIT L1
+
+63. Address df84f1 READ
+HIT L1
+
+64. Address df84f2 READ
+HIT L1
+
+65. Address df84f3 READ
+HIT L1
+
+66. Address df84f4 READ
+HIT L1
+
+67. Address df84f5 READ
+HIT L1
+
+68. Address 40138938 READ
+HIT L1
+
+69. Address 423aeb90 READ
+HIT L1
+
+70. Address 7b034d58 WRITE
+MISS L1
+READ FROM L2 7b034d58
+MISS L2
+
+71. Address 7b034c80 WRITE
+MISS L1
+READ FROM L2 7b034c80
+MISS L2
+
+72. Address 7b034c68 READ
+HIT L1
+
+73. Address df84d4 READ
+HIT L1
+
+74. Address 40138938 READ
+HIT L1
+
+75. Address 40139dd0 READ
+HIT L1
+
+76. Address 423aeb92 READ
+HIT L1
+
+77. Address 423aeb94 READ
+HIT L1
+
+78. Address 423aeb88 READ
+HIT L1
+
+79. Address 423aeb88 READ
+HIT L1
+
+80. Address 423aeb88 READ
+HIT L1
+
+81. Address 423aeb88 READ
+HIT L1
+
+82. Address 423aeb8c READ
+HIT L1
+
+83. Address 42351e38 READ
+MISS L1
+READ FROM L2 42351e38
+MISS L2
+
+84. Address 42351e3c READ
+HIT L1
+
+85. Address 423aeb88 READ
+HIT L1
+
+86. Address 40022e80 WRITE
+MISS L1
+READ FROM L2 40022e80
+MISS L2
+
+87. Address 423aeb88 READ
+HIT L1
+
+88. Address 4214c9d4 READ
+MISS L1
+READ FROM L2 4214c9d4
+MISS L2
+
+89. Address 40002178 READ
+MISS L1
+READ FROM L2 40002178
+MISS L2
+
+90. Address 384130 READ
+MISS L1
+READ FROM L2 384130
+MISS L2
+
+91. Address 423aeb8c READ
+HIT L1
+
+92. Address 42351e38 READ
+HIT L1
+
+93. Address 42351e3c READ
+HIT L1
+
+94. Address 401367d0 READ
+MISS L1
+READ FROM L2 401367d0
+MISS L2
+
+95. Address 7b0345e4 READ
+MISS L1
+READ FROM L2 7b0345e4
+MISS L2
+
+96. Address 423aeb8c WRITE
+HIT L1
+
+97. Address 423aeb94 WRITE
+HIT L1
+
+98. Address 40022e80 READ
+HIT L1
+
+99. Address 40139dd0 READ
+HIT L1
+
+100. Address 423aeb9c READ
+HIT L1
