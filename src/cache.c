@@ -14,12 +14,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+
 #include "cache.h"
 #include "cache_utils.h"
+#include "cache_print.h"
 
-cache_generic_t     g_cache;        /* generic cache, l1 as of now  */
-cache_tagstore_t    g_cache_ts;     /* gemeroc cache tagstore       */
-const char          *g_dirty = "D"; /* used to denote dirty blocks  */
+/* Globals */
+boolean             g_l2_present = FALSE;       /* l2 cache present?        */
+boolean             g_victim_present = FALSE;   /* victim cache present?    */
+cache_generic_t     g_l1_cache;             /* primary l1 cache             */
+cache_tagstore_t    g_l1_cache_ts;          /* primary cache tagstore       */
+cache_generic_t     g_l2_cache;             /* l2 cache                     */
+cache_tagstore_t    g_l2_cache_ts;          /* l2 cache tagstore            */
+const char          *g_dirty = "D";         /* used to denote dirty blocks  */
+const char          *g_l1_name = "L1 cache";
+const char          *g_l2_name = "L2 cache";
+
 
 /*************************************************************************** 
  * Name:    cache_init
@@ -36,21 +46,75 @@ const char          *g_dirty = "D"; /* used to denote dirty blocks  */
  * Returns: Nothing
  **************************************************************************/
 void
-cache_init(cache_generic_t *pcache, const char *name, 
-        const char *trace_file, uint8_t level)
+cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache, 
+        int num_args, char **input)
 {
-    if ((NULL == pcache) || (NULL == name)) {
+    char        *trace_file = NULL;
+    uint8_t     arg_iter = 1;
+    uint32_t    blk_size = 0;
+    uint32_t    l1_size = 0;
+    uint16_t    l1_set_assoc = 0;
+    uint32_t    l2_size = 0;
+    uint16_t    l2_set_assoc = 0;
+    uint32_t    victim_size = 0;
+
+    if ((!l1_cache) || (!l2_cache) || (!input)) {
         cache_assert(0);
         goto exit;
     }
 
-    memset(pcache, 0, sizeof *pcache);
-    pcache->level = level;
-    strncpy(pcache->name, name, (CACHE_NAME_LEN - 1));
-    strncpy(pcache->trace_file, trace_file, (CACHE_TRACE_FILE_LEN -1));
-    pcache->stats.cache = pcache;
-    pcache->next_cache = NULL;
-    pcache->prev_cache = NULL;
+    memset(l1_cache, 0, sizeof(*l1_cache));
+    memset(l2_cache, 0, sizeof(*l2_cache));
+
+    blk_size = atoi(input[arg_iter++]);
+    l1_size = atoi(input[arg_iter++]);
+    l1_set_assoc = atoi(input[arg_iter++]);
+    
+    victim_size = atoi(input[arg_iter++]);
+    g_victim_present = (victim_size ? TRUE : FALSE);
+    dprint_info("victim size %u\n", victim_size);
+    dprint_info("func victim size %u\n", cache_util_is_victim_present());
+
+    l2_size = atoi(input[arg_iter++]);
+    l2_set_assoc = atoi(input[arg_iter++]);
+    g_l2_present = (l2_size ? TRUE : FALSE);
+    dprint_info("l2_present %u\n", l2_size);
+    dprint_info("func l2_present %u\n", cache_util_is_l2_present());
+    
+    trace_file = input[arg_iter++];
+
+    /* Init L1 cache. */
+    strncpy(l1_cache->name, g_l1_name, (CACHE_NAME_LEN - 1));
+    l1_cache->size = l1_size;
+    l1_cache->level = CACHE_LEVEL_1;
+    l1_cache->set_assoc = l1_set_assoc;
+    l1_cache->blk_size = blk_size;
+    l1_cache->victim_size = victim_size;
+    l1_cache->prev_cache = NULL;
+    l1_cache->next_cache = (cache_util_is_l2_present() ? l2_cache : NULL);
+    l1_cache->stats.cache = l1_cache;
+
+    /* 
+     * Force set repl & write policies as they are the only ones 
+     * supported as of now. 
+     * */
+    l1_cache->repl_plcy = CACHE_REPL_PLCY_LRU;
+    l1_cache->write_plcy = CACHE_WRITE_PLCY_WBWA;
+
+    /* Init L2 cache. */
+    if (cache_util_is_l2_present()) {
+        strncpy(l2_cache->name, g_l2_name, (CACHE_NAME_LEN - 1));
+        l2_cache->size = l2_size;
+        l2_cache->level = CACHE_LEVEL_2;
+        l2_cache->set_assoc = l2_set_assoc;
+        l2_cache->blk_size = blk_size;
+        l2_cache->victim_size = 0;      /* No victim cache for L2 */
+        l2_cache->repl_plcy = CACHE_REPL_PLCY_LRU;
+        l2_cache->write_plcy = CACHE_WRITE_PLCY_WBWA;
+        l2_cache->next_cache = NULL;
+        l2_cache->prev_cache = l1_cache;
+        l2_cache->stats.cache = l2_cache;
+    }
 
 exit:
     return;
@@ -128,11 +192,6 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
     tagstore->num_blocks_per_set = num_blocks_per_set = cache->set_assoc;
     tagstore->num_blocks = num_sets * num_blocks_per_set;
 
-
-    dprint_info("num_sets %u, tag_bits %u, index_bits %u, "     \
-            "blk_offset_bits %u\n",
-            num_sets, tag_bits, index_bits, blk_offset_bits);
-
     /* Allocate memory to store indices, tags and tag data. */ 
     tagstore->index = 
         calloc(1, (num_sets * sizeof(uint32_t)));
@@ -158,7 +217,8 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
     tagstore->cache = cache;
 
 #ifdef DBG_ON
-    cache_util_print_tagstore(cache);
+    dprint_info("printing ts data..\n");
+    cache_print_tagstore(cache);
 #endif /* DBG_ON */
 
 exit:
@@ -234,144 +294,6 @@ exit:
     return;
 }
 
-
-/*************************************************************************** 
- * Name:    cache_print_sim_config 
- *
- * Desc:    Prints the simulator configuration in TA's style. 
- *
- * Params:
- *  cache   ptr to the main cache data structure
- *
- * Returns: Nothing 
- **************************************************************************/
-void
-cache_print_sim_config(cache_generic_t *cache)
-{
-    dprint("  ===== Simulator configuration =====\n");
-    dprint("  L1_BLOCKSIZE: %21u\n", cache->blk_size);
-    dprint("  L1_SIZE: %26u\n", cache->size);
-    dprint("  L1_ASSOC: %25u\n", cache->set_assoc);
-    dprint("  L1_REPLACEMENT_POLICY: %12u\n", cache->repl_plcy);
-    dprint("  L1_WRITE_POLICY: %18u\n", cache->write_plcy);
-    dprint("  trace_file: %23s\n", cache->trace_file);
-    dprint("  ===================================\n");
-
-    return;
-}
-
-
-/*************************************************************************** 
- * Name:    cache_print_sim_stats
- *
- * Desc:    Prints the simulator statistics in TA's style. 
- *
- * Params:
- *  cache   ptr to the main cache data structure
- *
- * Returns: Nothing 
- **************************************************************************/
-void
-cache_print_sim_stats(cache_generic_t *cache)
-{
-    double          miss_rate = 0.0;
-    double          hit_time = 0.0;
-    double          miss_penalty = 0.0;
-    double          avg_access_time = 0.0;
-    double          total_access_time = 0.0;
-    double          b_512kb = (512 * 1024);
-    cache_stats_t   *stats = NULL;
-
-    stats = &(cache->stats);
-
-    /* 
-     * Calculation of avg. access time (from project web-page):
-     * Some fixed parameters to use in your project:
-     *  1. L2 Miss_Penalty (in ns) = 20 ns + 0.5*(L2_BLOCKSIZE / 16 B/ns) 
-     *      (in the case that there is only L1 cache, use
-     *      L1 miss penalty (in ns) = 20 ns + 0.5*(L1_BLOCKSIZE / 16 B/ns))
-     *  2. L1 Cache Hit Time (in ns) = 0.25ns + 2.5ns * (L1_Cache Size / 512kB)
-     *      + 0.025ns * (L1_BLOCKSIZE / 16B) + 0.025ns * L1_SET_ASSOCIATIVITY
-     * 3.  L2 Cache Hit Time (in ns) = 2.5ns + 2.5ns * (L2_Cache Size / 512kB) 
-     *      + 0.025ns * (L2_BLOCKSIZE / 16B) + 0.025ns * L2_SET_ASSOCIATIVITY
-     * 4.  Area Budget = 512kB for both L1 and L2 Caches
-     */
-    miss_rate =  ((double) (stats->num_read_misses + stats->num_write_misses) /
-                (double) (stats->num_reads + stats->num_writes));
-    hit_time = (0.25 + (2.5 * (((double) cache->size) / b_512kb)) + (0.025 *
-            (((double) cache->blk_size) / 16)) + (0.025 * cache->set_assoc));
-    miss_penalty = (20 + (0.5 * (((double) cache->blk_size) / 16)));
-    total_access_time = (((stats->num_reads + stats->num_writes) * hit_time) +
-            ((stats->num_read_misses + stats->num_write_misses) * 
-             miss_penalty));
-#ifndef DBG_ON
-    avg_access_time = (hit_time + (miss_rate * miss_penalty));
-#else
-    avg_access_time = (total_access_time / 
-            (stats->num_reads + stats->num_writes));
-#endif /* DBG_ON */
-
-    dprint("\n");
-    dprint("  ====== Simulation results (raw) ======\n");
-    dprint("  a. number of L1 reads: %15u\n", stats->num_reads);
-    dprint("  b. number of L1 read misses: %9u\n", stats->num_read_misses);
-    dprint("  c. number of L1 writes: %14u\n", stats->num_writes);
-    dprint("  d. number of L1 write misses: %8u\n", stats->num_write_misses);
-    dprint("  e. L1 miss rate: %21.4f\n", miss_rate);
-    dprint("  f. number of writebacks from L1: %5u\n", stats->num_write_backs);
-    dprint("  g. total memory traffic: %13u\n", stats->num_blk_mem_traffic);
-
-    dprint("\n");
-    dprint("  ==== Simulation results (performance) ====\n");
-    dprint("  1. average access time: %14.4f ns\n", avg_access_time);
-
-    return;
-}
-
-
-/*************************************************************************** 
- * Name:    cache_print_sim_data
- *
- * Desc:    Prints the simulator data in TA's style. 
- *
- * Params:
- *  cache   ptr to the main cache data structure
- *
- * Returns: Nothing 
- **************************************************************************/
-void
-cache_print_sim_data(cache_generic_t *cache)
-{
-    uint32_t            index = 0;
-    uint32_t            tag_index = 0;
-    uint32_t            block_id = 0;
-    uint32_t            num_sets = 0;
-    uint32_t            num_blocks_per_set = 0;
-    uint32_t            *tags = NULL;
-    cache_tag_data_t    *tag_data = NULL;
-    cache_tagstore_t    *tagstore = NULL;
-
-    tagstore = cache->tagstore;
-    num_sets = tagstore->num_sets;
-    num_blocks_per_set = tagstore->num_blocks_per_set;
-
-    dprint("\n===== L1 contents =====\n");
-    for (index = 0; index < num_sets; ++index) {
-        tag_index = (index * num_blocks_per_set);
-        tags = &tagstore->tags[tag_index];
-        tag_data = &tagstore->tag_data[tag_index];
-        dprint("set%4u: ", index);
-        
-        for (block_id = 0; block_id < num_blocks_per_set; 
-                ++block_id) {
-            dprint(" %7x %s", 
-                    tags[block_id], (tag_data[block_id].dirty) ? g_dirty : "");
-        }
-        dprint("\n");
-    }
-
-    return;
-}
 
 /*************************************************************************** 
  * Name:    cache_get_lru_block
@@ -863,7 +785,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
 
 exit:
 #ifdef DBG_ON
-    cache_util_print_debug_data(cache, line);
+    cache_print_debug_data(cache, line);
 #endif /* DBG_ON */
     return;
 }
@@ -916,7 +838,6 @@ int
 main(int argc, char **argv)
 {
     char            newline = '\n';
-    uint8_t         arg_iter = 1;
     const char      *trace_fpath = NULL;
     FILE            *trace_fptr = NULL;
     mem_ref_t       mem_ref;
@@ -924,26 +845,29 @@ main(int argc, char **argv)
     /* Error out in case of invalid arguments. */
     if (FALSE == cache_util_validate_input(argc, argv)) {
         printf("Error: Invalid input(s). See usage for help.\n");
-        cache_util_print_usage(argv[0]);
+        cache_print_usage(argv[0]);
         goto error_exit;
     }
 
-    memset(&mem_ref, 0, sizeof mem_ref);
+    memset(&mem_ref, 0, sizeof(mem_ref));
 
     /* 
      * Parse arguments and populate the data structure with 
      * cache attributes. 
      */
-    trace_fpath = argv[argc - 1];
-    cache_init(&g_cache, "generic cache", trace_fpath, CACHE_LEVEL_1);
-    g_cache.blk_size = atoi(argv[arg_iter++]);
-    g_cache.size = atoi(argv[arg_iter++]);
-    g_cache.set_assoc = atoi(argv[arg_iter++]);
-    g_cache.repl_plcy = atoi(argv[arg_iter++]);
-    g_cache.write_plcy = atoi(argv[arg_iter++]);
+    cache_init(&g_l1_cache, &g_l2_cache, argc, argv);
 
-    /* Initialize a tagstore for the given cache. */
-    cache_tagstore_init(&g_cache, &g_cache_ts);
+    /* Initialize a tagstore for L1 & L2 caches. */
+    cache_tagstore_init(&g_l1_cache, &g_l1_cache_ts);
+    if (cache_util_is_l2_present())
+        cache_tagstore_init(&g_l2_cache, &g_l2_cache_ts);
+
+#ifdef DBG_ON
+    cache_print_cache_data(&g_l1_cache);
+    if (cache_util_is_l2_present())
+        cache_print_cache_data(&g_l2_cache);
+    return 0;
+#endif /* DBG_ON */
 
     /* Try opening the trace file. */
     trace_fptr = fopen(trace_fpath, "r");
@@ -960,7 +884,7 @@ main(int argc, char **argv)
                 &(mem_ref.ref_type), &(mem_ref.ref_addr), &newline) != EOF) {
         dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);
-        if (!cache_handle_memory_request(&g_cache, &mem_ref)) {
+        if (!cache_handle_memory_request(&g_l1_cache, &mem_ref)) {
             dprint_err("Error: Unable to handle memory reference request for "\
                     "type %c, addr 0x%x.\n", 
                     mem_ref.ref_type, mem_ref.ref_addr);
@@ -969,18 +893,20 @@ main(int argc, char **argv)
     }
 
 #ifdef DBG_ON
-    cache_util_print(&g_cache);
+    cache_print_cache_data(&g_l1_cache);
 #endif /* DBG_ON */
 
     /* Dump the cache simulator configuration, cache state and statistics. */
-    cache_print_sim_config(&g_cache);
-    cache_print_sim_data(&g_cache);
-    cache_print_sim_stats(&g_cache);
+    cache_print_sim_config(&g_l1_cache);
+    cache_print_sim_data(&g_l1_cache);
+    cache_print_sim_stats(&g_l1_cache);
 
     if (trace_fptr) 
         fclose(trace_fptr);
 
-    cache_cleanup(&g_cache);
+    if (cache_util_is_l2_present())
+        cache_cleanup(&g_l2_cache);
+    cache_cleanup(&g_l1_cache);
 
     return 0;
 
@@ -988,7 +914,9 @@ error_exit:
     if (trace_fptr)
         fclose(trace_fptr);
 
-    cache_cleanup(&g_cache);
+    if (cache_util_is_l2_present())
+        cache_cleanup(&g_l2_cache);
+    cache_cleanup(&g_l1_cache);
 
     return -1;
 }

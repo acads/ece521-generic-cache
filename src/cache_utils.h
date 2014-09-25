@@ -16,7 +16,7 @@
 #include "cache.h"
 
 /* Constants */
-#define CACHE_INPUT_NUM_ARGS    6
+#define CACHE_INPUT_NUM_ARGS    7
 
 /* Util macros */
 #define IS_MEM_REF_READ(REF)    (MEM_REF_TYPE_READ == REF->ref_type)
@@ -55,19 +55,12 @@ cache_util_is_block_dirty(cache_tagstore_t *tagstore, cache_line_t *line,
 boolean
 cache_util_validate_input(int nargs, char **args);
 void
-cache_util_print_usage(const char *prog);
-void
 cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr, 
         cache_line_t *line);
-
-#ifdef DBG_ON
-void
-cache_util_print(cache_generic_t *pcache);
-void
-cache_util_print_stats(cache_stats_t *pcache_stats, boolean detail);
-void
-cache_util_print_tagstore(cache_generic_t *cache);
-#endif /* DBG_ON */
+inline boolean
+cache_util_is_l2_present(void);
+inline boolean
+cache_util_is_victim_present(void);
 
 boolean
 util_is_power_of_2(uint32_t num);
@@ -77,9 +70,6 @@ inline uint64_t
 util_get_curr_time(void);
 inline uint32_t
 util_get_block_ref_count(cache_tagstore_t *tagstore, cache_line_t *line);
-void
-cache_util_print_debug_data(cache_generic_t *cache, cache_line_t *line);
-
 
 #endif /* CACHE_UTILS_H_ */
 

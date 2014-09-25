@@ -100,6 +100,7 @@ typedef struct cache_generic__ {
     uint32_t            size;                   /* total cache size         */
     uint8_t             repl_plcy;              /* replacement policy       */
     uint8_t             write_plcy;             /* write policy             */
+    uint32_t            victim_size;            /* victim cache size        */
     cache_stats_t       stats;                  /* cache statistics         */
     cache_tagstore_t    *tagstore;              /* associated tagstore      */
     struct cache_generic__ *next_cache;         /* next higher level cache  */
@@ -107,10 +108,20 @@ typedef struct cache_generic__ {
 } cache_generic_t;
 
 
+/* Externs */
+extern boolean          g_l2_present;
+extern boolean          g_victim_present;
+extern cache_generic_t  g_l1_cache;
+extern cache_generic_t  g_l2_cache;
+extern cache_tagstore_t g_l1_ts;
+extern cache_tagstore_t g_l2_ts;
+extern const char       *g_dirty;
+
+
 /* Function declarations */
 void
-cache_init(cache_generic_t *pcache, const char *name, 
-        const char *trace_file, uint8_t level);
+cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache, 
+        int num_args, char **argv);
 void
 cache_cleanup(cache_generic_t *pcache);
 void

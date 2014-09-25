@@ -13,7 +13,7 @@
 # Generic cache simulator Makefile
 PROG = sim_cache
 INCLS = -I.
-SRCS = cache.c cache_utils.c
+SRCS = cache.c cache_utils.c cache_print.c
 OBJS = $(SRCS:.c=.o)
 CLEANFILES = $(PROG) $(OBJS)
 
@@ -28,7 +28,8 @@ CLEANFILES = $(PROG) $(OBJS)
 # 	2. Program profile data collector
 # 	3. Enable debug traces in teh actual progran code.
 #
-DEBUG = 
+DEBUG = -g -pg -D DBG_ON
+#DEBUG = 
 
 
 # Compiler options
