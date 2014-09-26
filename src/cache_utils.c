@@ -312,6 +312,18 @@ cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr,
     uint32_t index_mask = 0;
     uint32_t offset_mask = 0;
 
+    if (!line) {
+        dprint_err("null line\n");
+        cache_assert(0);
+        goto exit;
+    }
+
+    if (!tagstore) {
+        dprint_err("null tagstore\n");
+        cache_assert(0);
+        goto exit;
+    }
+
     if ((!line) || (!tagstore)) {
         cache_assert(0);
         goto exit;

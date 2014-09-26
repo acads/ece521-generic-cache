@@ -1,11 +1,10 @@
 /* 
  * ECE 521 - Computer Design Techniques, Fall 2014
- * Project 1A - Generic Cache Implementation
+ * Project 1B - L1, victim & L2 cache implementation.
  *
  * This module contains the majority of the cache implementation, like
  * cache and tagstore init with corresponding cleanup routines, 
- * replacement policy implementations (LRU and LFU), cache lookup
- * and so on.
+ * replacement policy implementation (LRU), cache lookup and so on.
  *
  * Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
  */
@@ -134,6 +133,8 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     l2_size = atoi(input[arg_iter++]);
     l2_set_assoc = atoi(input[arg_iter++]);
     g_l2_present = (l2_size ? TRUE : FALSE);
+    printf("g_l2_present %u\n", g_l2_present);
+    printf("func g_l2_present %u\n", cache_util_is_l2_present());
     
     trace_file = input[arg_iter++];
 
@@ -569,45 +570,57 @@ error_exit:
  * Name:    cache_handle_dirty_tag_evicts 
  *
  * Desc:    Handles dirty tag evicts from the cache. If the write policy is
- *          set to write back, writes the block to next level of memory (yet
- *          to be implemented) .
+ *          set to write back, writes the block to next level of memory. 
  *
  * Params:
- *  tagstore    ptr to the cache tagstore
+ *  cache       ptr to the cache containing the dirty block
+ *  mem_ref     incoming memory reference
  *  block_id    ID of the block within the set which has to be evicted
  *
  * Returns: Nothing
  **************************************************************************/
 void
-cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line, 
+cache_handle_dirty_tag_evicts(cache_generic_t *cache, mem_ref_t *mem_ref, 
         uint32_t block_id)
 {
     uint32_t            tag_index = 0;
-    cache_generic_t     *cache = NULL;
+    cache_line_t        line;
+    cache_tagstore_t    *tagstore = NULL;
     cache_tag_data_t    *tag_data = NULL;
 
-    if (!tagstore) {
+    if ((!cache) || (!mem_ref)) {
         cache_assert(0);
         goto exit;
     }
+    tagstore = cache->tagstore;
 
-    cache = (cache_generic_t *) tagstore->cache;
-    tag_index = (line->index * tagstore->num_blocks_per_set);
+    /* Decode the memmory reference to the current cache's cache line. */
+    memset(&line, 0, sizeof(line));
+    cache_util_decode_mem_addr(tagstore, mem_ref->ref_addr, &line);
+
+    tag_index = (line.index * tagstore->num_blocks_per_set);
     tag_data = &tagstore->tag_data[tag_index];
 
-    /* 
-     * As of now, we just update the write back counter and clear the dirty
-     * bit on the block. This code will be extended in the future to
-     * implement actual memory write backs.
+
+    /* If there's another level of cache, issue a write request on that address
+     * to the next cache.
      */
+    if ((CACHE_WRITE_PLCY_WBWA == cache->write_plcy) && (cache->next_cache)) {
+        mem_ref_t   write_ref;
+
+        memset(&write_ref, 0, sizeof(write_ref));
+        memcpy(&write_ref, mem_ref, sizeof(write_ref));
+        write_ref.ref_type = MEM_REF_TYPE_WRITE;
+        cache_evict_and_add_tag(cache->next_cache, &write_ref);
+    }
+
+    /* Update the write back counter and clear the dirty bit on the block. */ 
     cache->stats.num_write_backs += 1;
     cache->stats.num_blk_mem_traffic += 1;
     tag_data[block_id].dirty = 0;
 
-    dprint_info("writing dirty block, index %u, block %u to next level "    \
-            "due to eviction\n", line->index, block_id);
-
-    /* dan_todo: add code for handling dirty evicts. */
+    dprint_info("writing dirty block, index %u, block %u to next "  \
+            "level due to eviction\n", line.index, block_id);
 
 exit:
     return;
@@ -683,7 +696,7 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
     if (cache_util_is_block_dirty(tagstore, line, block_id)) {
         dprint_info("selected a dirty block to evict in index %u, block %d\n",
                 line->index, block_id);
-        cache_handle_dirty_tag_evicts(tagstore, line, block_id);
+        cache_handle_dirty_tag_evicts(cache, mref, block_id);
     }
 
     return block_id;
@@ -710,47 +723,69 @@ error_exit:
  *          miss/hit counters, valid, dirty (for writes) and age for the block.
  *
  * Params:
- *  cache       ptr to cache
+ *  in_cache    ptr to cache
  *  mem_ref     ptr to the memory reference (type and address)
- *  line        ptr to the decoded cache line
  *
  * Returns: Nothing.
  **************************************************************************/
 void
-cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref, 
-        cache_line_t *line)
+cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
 {
     uint8_t             read_flag = FALSE;
     int32_t             block_id = 0;
     uint32_t            tag_index = 0;
     uint32_t            *tags = NULL;
     uint64_t            curr_age;
+    cache_line_t        line;
     cache_tag_data_t    *tag_data = NULL;
     cache_tagstore_t    *tagstore = NULL;
+
+    if ((!cache) || (!mref)) {
+        cache_assert(0);
+        goto exit;
+    }
+    tagstore = cache->tagstore;
+
+#if 0
+    /* 
+     * Update the current cache with the incoming cache and get the cache 
+     * under processing. 
+     * */
+    cache_set_current_cache(in_cache, in_cache->tagstore);
+    cache = cache_get_current_cache();
+    tagstore = cache_get_curr_tagstore();
+#endif
 
     /* Fetch the current time to be used for tag age (for LRU). */
     curr_age = util_get_curr_time(); 
 
-    tagstore = cache->tagstore;
-    tag_index = (line->index * tagstore->num_blocks_per_set);
+    /* Decode the memmory reference to the current cache's cache line. */
+    memset(&line, 0, sizeof(line));
+    cache_util_decode_mem_addr(tagstore, mref->ref_addr, &line);
+
+    /* Fetch the appropriate set within the tagstore. */
+    tag_index = (line.index * tagstore->num_blocks_per_set);
     tags = &tagstore->tags[tag_index];
     tag_data = &tagstore->tag_data[tag_index];
-    read_flag = (IS_MEM_REF_READ(mem_ref) ? TRUE : FALSE);
+    read_flag = (IS_MEM_REF_READ(mref) ? TRUE : FALSE);
 
     if (read_flag)
         cache->stats.num_reads += 1;
     else
         cache->stats.num_writes += 1;
 
-
-    if (CACHE_RV_ERR != (block_id = cache_does_tag_match(tagstore, line))) {
+    if (CACHE_RV_ERR != (block_id = cache_does_tag_match(tagstore, &line))) {
         /* 
-         * Tag is already present. Just update the tag_data and write thru 
-         * if required.
+         * Cache hit!
+         * Tag is already present. Just update the counters and go fetch the
+         * next memory reference.
+         *
+         * Life is good!
          */
         tag_data[block_id].valid = 1;
         tag_data[block_id].age = curr_age;
         tag_data[block_id].ref_count += 1;
+
         if (read_flag) {
             cache->stats.num_read_hits += 1;
         } else {
@@ -764,7 +799,88 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
              }
         }
         dprint_info("tag 0x%x already present in index %u, block %u\n",
-                line->tag, line->index, block_id);
+                line.tag, line.index, block_id);
+    } else {
+        /* Cache miss! 
+         * Well, life is not always so good..
+         *
+         * In multi level caches, do the following in case of a cache miss:
+         *  1. If the next level in hierarchy is a cache, check if the 
+         *     requested data is present there. If so, bring in the block
+         *     and follow steps 2/3 for placing the block. i.e., find a
+         *     free block or go for replacement.
+         *  2. If the next level is not a cache (i.e., for last level of
+         *     caches, the next level would be main memory), check if there
+         *     are any free blocks. If so, use those blocks for new data.
+         *  3. If there are no free blocks and if the cache is the last level,
+         *     go for cache replacement.
+         *
+         * For all three cases, first find a block to place the to-be-feched
+         * data block. 
+         */
+
+        if (read_flag)
+            cache->stats.num_read_misses += 1;
+        else
+            cache->stats.num_write_misses += 1;
+
+        /* Find a block to place the to-be-fetcheed data. */
+        block_id = cache_get_first_invalid_block(tagstore, &line);
+        if (CACHE_RV_ERR == block_id) {
+            /* No free blocks are available. Evict a block from the cache. */
+            block_id = cache_evict_tag(cache, mref, &line);
+        }
+
+        /* Check next level cache, if available. */ 
+        if (cache->next_cache) {
+            mem_ref_t       read_ref;
+            cache_generic_t *next_cache = NULL;
+
+            /* 
+             * Convert the write reference to read reference if the block is to
+             * be fetched from next level.
+             */
+            memset(&read_ref, 0, sizeof(read_ref));
+            memcpy(&read_ref, mref, sizeof(read_ref));
+            read_ref.ref_type = MEM_REF_TYPE_READ;
+
+            /*
+             * Set the globals - curr cache & curr ts to the next level.
+             * Set them back to previous values once the request is processed.
+             */
+            cache_set_current_cache(cache->next_cache, 
+                    cache->next_cache->tagstore);
+            next_cache = cache_get_current_cache();
+            cache_evict_and_add_tag(next_cache, &read_ref);
+            cache_set_current_cache(cache->prev_cache, 
+                    cache->prev_cache->tagstore);
+        } else {
+            /*
+             * We are at the last cache and currently handling a miss. 
+             * Read from memory and place it the previouly found block. 
+             */
+            tags[block_id] = line.tag;
+            cache->stats.num_blk_mem_traffic += 1;
+            tag_data[block_id].valid = 1;
+            tag_data[block_id].age = curr_age;
+            tag_data[block_id].ref_count = 
+                (util_get_block_ref_count(tagstore, &line) + 1);
+
+            if (read_flag) {
+                cache->stats.num_read_misses += 1;
+            } else {
+                cache->stats.num_write_misses += 1;
+
+                /* Set the block to be dirty only for WBWA write policy. */
+                if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
+                    tag_data[block_id].dirty = 1;
+            }
+            dprint_info("tag 0x%x added to index %u, block %u\n", 
+                    line.tag, line.index, block_id);
+        }   /* End of last level cache processing */
+    }   /* End of cache miss processing */
+
+#if 0
     } else if (CACHE_RV_ERR != 
             (block_id = cache_get_first_invalid_block(tagstore, line))) {
         /* 
@@ -805,7 +921,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
          * Evict an existing tag based on the replacement policy set and place
          * the new tag on that block.
          */
-        
+         
         if ((!read_flag) && 
                 (CACHE_WRITE_PLCY_WTNA == CACHE_GET_WRITE_POLICY(cache))) {
             /* Don't bother with write misses for WTNA write policy. */
@@ -839,10 +955,11 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref,
         dprint_info("tag 0x%x added to index %u, block %d after eviction\n",
                 line->tag, line->index, block_id);
     }
+#endif
 
 exit:
 #ifdef DBG_ON
-    cache_print_debug_data(cache, line);
+    cache_print_debug_data(cache, &line);
 #endif /* DBG_ON */
     return;
 }
@@ -881,7 +998,7 @@ cache_handle_memory_request(cache_generic_t *cache, mem_ref_t *mref)
     cache_util_decode_mem_addr(cache->tagstore, mref->ref_addr, &line);
 
     /* Cache pipeline starts here. */
-    cache_evict_and_add_tag(cache, mref, &line);
+    cache_evict_and_add_tag(cache, mref);
 
     return TRUE;
 
@@ -920,14 +1037,6 @@ main(int argc, char **argv)
     if (cache_util_is_l2_present())
         cache_tagstore_init(&g_l2_cache, &g_l2_cache_ts);
 
-#ifdef DBG_ON
-    cache_print_cache_data(&g_l1_cache);
-    if (cache_util_is_l2_present())
-        cache_print_cache_data(&g_l2_cache);
-
-    return 0;
-#endif /* DBG_ON */
-
     /* Try opening the trace file. */
     trace_fptr = fopen(trace_fpath, "r");
     if (!trace_fptr) {
@@ -943,7 +1052,7 @@ main(int argc, char **argv)
     while (fscanf(trace_fptr, "%c %x%c", 
                 &(mem_ref.ref_type), &(mem_ref.ref_addr), &newline) != EOF) {
         /* All requests start at L1 cache. */
-        cache_set_current_cache(&g_l1_cache, &g_l1_ts);
+        cache_set_current_cache(&g_l1_cache, &g_l1_cache_ts);
 
         dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);
@@ -956,12 +1065,14 @@ main(int argc, char **argv)
     }
 
 #ifdef DBG_ON
-    cache_print_cache_data(&g_l1_cache);
+    cache_print_cache_dbg_data(&g_l1_cache);
 #endif /* DBG_ON */
 
     /* Dump the cache simulator configuration, cache state and statistics. */
     cache_print_sim_config(&g_l1_cache);
-    cache_print_sim_data(&g_l1_cache);
+    cache_print_cache_data(&g_l1_cache);
+    if (cache_util_is_l2_present())
+        cache_print_cache_data(&g_l2_cache);
     cache_print_sim_stats(&g_l1_cache);
 
     if (trace_fptr) 

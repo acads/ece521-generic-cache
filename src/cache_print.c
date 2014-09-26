@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <stdint.h>
 
 #include "cache.h"
@@ -109,7 +110,7 @@ cache_print_sim_stats(cache_generic_t *cache)
 
 
 /*************************************************************************** 
- * Name:    cache_print_sim_data
+ * Name:    cache_print_cache_data
  *
  * Desc:    Prints the simulator data in TA's style. 
  *
@@ -119,8 +120,9 @@ cache_print_sim_stats(cache_generic_t *cache)
  * Returns: Nothing 
  **************************************************************************/
 void
-cache_print_sim_data(cache_generic_t *cache)
+cache_print_cache_data(cache_generic_t *cache)
 {
+    char                *title = NULL;
     uint32_t            index = 0;
     uint32_t            tag_index = 0;
     uint32_t            block_id = 0;
@@ -134,7 +136,11 @@ cache_print_sim_data(cache_generic_t *cache)
     num_sets = tagstore->num_sets;
     num_blocks_per_set = tagstore->num_blocks_per_set;
 
-    dprint("\n===== L1 contents =====\n");
+    title = (strncmp(cache->name, g_l1_name, strlen(g_l1_name)) ?
+            "===== L2 contents =====" : "===== L1 contents =====");
+
+    //dprint("\n===== L1 contents =====\n");
+    dprint("\n%s\n", title);
     for (index = 0; index < num_sets; ++index) {
         tag_index = (index * num_blocks_per_set);
         tags = &tagstore->tags[tag_index];
@@ -189,7 +195,7 @@ cache_print_usage(const char *prog)
 
 #ifdef DBG_ON
 /*************************************************************************** 
- * Name:    cache_print_cache_data
+ * Name:    cache_print_cache_dbg_data
  *
  * Desc:    Prints the cache details, configuration and statistics.
  *
@@ -199,7 +205,7 @@ cache_print_usage(const char *prog)
  * Returns: Nothing
  **************************************************************************/
 void
-cache_print_cache_data(cache_generic_t *pcache)
+cache_print_cache_dbg_data(cache_generic_t *pcache)
 {
     if (NULL == pcache) {
         cache_assert(0);
@@ -213,6 +219,7 @@ cache_print_cache_data(cache_generic_t *pcache)
     printf("Level              : %u\n", pcache->level);
     printf("Block Size         : %u\n", pcache->blk_size);
     printf("Total Size         : %u\n", pcache->size);
+    dprint("Set Associativity  : %u\n", pcache->set_assoc);
     printf("Replacement Policy : %s\n", pcache->repl_plcy ? "LFU" : "LRU");
     printf("Write Policy       : %s\n", pcache->write_plcy ? "WTNA" : "WBWA");
     dprint("Prev Cache         : %s\n", 

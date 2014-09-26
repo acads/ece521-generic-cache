@@ -18,7 +18,7 @@ cache_print_usage(const char *prog);
 void
 cache_print_sim_stats(cache_generic_t *cache);
 void
-cache_print_sim_data(cache_generic_t *cache);
+cache_print_cache_data(cache_generic_t *cache);
 void
 cache_print_sim_config(cache_generic_t *cache);
 void
@@ -26,7 +26,7 @@ cache_print_stats(cache_stats_t *pcache_stats, boolean detail);
 
 #ifdef DBG_ON
 void
-cache_print_cache_data(cache_generic_t *pcache);
+cache_print_cache_dbg_data(cache_generic_t *pcache);
 void
 cache_print_tagstore(cache_generic_t *cache);
 void

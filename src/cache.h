@@ -116,6 +116,8 @@ extern cache_generic_t  g_l2_cache;
 extern cache_tagstore_t g_l1_ts;
 extern cache_tagstore_t g_l2_ts;
 extern const char       *g_dirty;
+extern const char       *g_l1_name;
+extern const char       *g_l2_name;
 
 
 /* Function declarations */
@@ -149,8 +151,10 @@ cache_get_lfu_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
 int32_t
 cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line);
 void
-cache_handle_dirty_tag_evicts(cache_tagstore_t *tagstore, cache_line_t *line, 
+cache_handle_dirty_tag_evicts(cache_generic_t *cache, mem_ref_t *mem_ref, 
         uint32_t block_id);
+void
+cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref);
 inline void
 cache_set_current_cache(cache_generic_t *cache, cache_tagstore_t *tagstore);
 inline cache_generic_t *
