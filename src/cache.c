@@ -28,8 +28,11 @@ cache_tagstore_t    g_l2_cache_ts;          /* l2 cache tagstore            */
 cache_generic_t     *g_cache;               /* currently under processing   */
 cache_tagstore_t    *g_ts;                  /* currently under processing   */
 const char          *g_dirty = "D";         /* used to denote dirty blocks  */
-const char          *g_l1_name = "cache_l1";
-const char          *g_l2_name = "cache_l2";
+const char          *g_l1_name = "L1";//"cache_l1";
+const char          *g_l2_name = "L2";//"cache_l2";
+const char          *g_read = "READ";
+const char          *g_write = "WRITE";
+uint32_t            g_addr_count;
 
 
 /*************************************************************************** 
@@ -611,25 +614,36 @@ cache_handle_dirty_tag_evicts(cache_generic_t *cache, mem_ref_t *mem_ref,
     tag_data = &tagstore->tag_data[tag_index];
 
 
-    /* If there's another level of cache, issue a write request on that address
+    /* 
+     * If there's another level of cache, issue a write request on that address
      * to the next cache.
      */
-    if ((CACHE_WRITE_PLCY_WBWA == cache->write_plcy) && (cache->next_cache)) {
+    if ((cache->next_cache) && (CACHE_WRITE_PLCY_WBWA == cache->write_plcy)) {
         mem_ref_t   write_ref;
 
         memset(&write_ref, 0, sizeof(write_ref));
         memcpy(&write_ref, mem_ref, sizeof(write_ref));
         write_ref.ref_type = MEM_REF_TYPE_WRITE;
+
+        dprint_dbg("LRU WRITE TO %s, INDEX %u, BLOCK %d, DIRTY %u\n",
+            CACHE_GET_NAME(cache->next_cache), line.index, block_id, 
+            cache_util_is_block_dirty(tagstore, &line, block_id));
+        dprint_info("%s writing dirty block [%u, %d] to next level due "    \
+                "to eviction", CACHE_GET_NAME(cache), line.index, block_id);
+
         cache_evict_and_add_tag(cache->next_cache, &write_ref);
+    } else {
+        dprint_dbg("LRU WRITE TO MEMORY, INDEX %u, BLOCK %d, DIRTY %u\n",
+            line.index, block_id, 
+            cache_util_is_block_dirty(tagstore, &line, block_id));
+        dprint_info("%s writing dirty block [%u, %d] to memory due to eviction",
+                CACHE_GET_NAME(cache), line.index, block_id);
     }
 
     /* Update the write back counter and clear the dirty bit on the block. */ 
     cache->stats.num_write_backs += 1;
     cache->stats.num_blk_mem_traffic += 1;
     tag_data[block_id].dirty = 0;
-
-    dprint_info("writing dirty block, index %u, block %u to next "  \
-            "level due to eviction\n", line.index, block_id);
 
 exit:
     return;
@@ -698,8 +712,12 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
             cache_assert(0);
             goto error_exit;
     }
-    dprint_info("selected index %u , block %d for eviction\n", 
-            line->index, block_id);
+    dprint_dbg("LRU EVICT FROM %s, INDEX %u, BLOCK %d, DIRTY %u\n",
+            CACHE_GET_NAME(cache), line->index, block_id, 
+            cache_util_is_block_dirty(tagstore, line, block_id));
+    dprint_info("LRU evict: %s, index %u , block %d, dirty %u\n", 
+            CACHE_GET_NAME(cache), line->index, block_id, 
+            cache_util_is_block_dirty(tagstore, line, block_id));
     
     /* If the block to be evicted is dirty, write it back if required. */
     if (cache_util_is_block_dirty(tagstore, line, block_id)) {
@@ -791,6 +809,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
          *
          * Life is good!
          */
+        dprint_dbg("HIT %s\n", CACHE_GET_NAME(cache));
         dprint_info("cache hit for cache %s, tag 0x%x at index %u, block %u\n",
                 CACHE_GET_NAME(cache), line.tag, line.index, block_id);
         tag_data[block_id].valid = 1;
@@ -829,6 +848,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
          * For all three cases, first find a block to place the to-be-feched
          * data block. 
          */
+        dprint_dbg("MISS %s\n", CACHE_GET_NAME(cache));
         dprint_info("cache miss for cache %s, tag 0x%x @ index %u\n",
                 CACHE_GET_NAME(cache), line.tag, line.index);
 #if 0
@@ -859,6 +879,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
             memcpy(&read_ref, mref, sizeof(read_ref));
             read_ref.ref_type = MEM_REF_TYPE_READ;
             
+            dprint_dbg("READ FROM %s %x\n", 
+                    CACHE_GET_NAME(cache->next_cache), read_ref.ref_addr);
             cache_evict_and_add_tag(cache->next_cache, &read_ref);
 
             tags[block_id] = line.tag;
@@ -1079,6 +1101,8 @@ main(int argc, char **argv)
         /* All requests start at L1 cache. */
         //cache_set_current_cache(&g_l1_cache, &g_l1_cache_ts);
 
+        dprint_dbg("\n%u. Address %x %s\n", ++g_addr_count, mem_ref.ref_addr,
+                CACHE_GET_REF_TYPE_STR((&mem_ref)));
         dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);
         if (!cache_handle_memory_request(&g_l1_cache, &mem_ref)) {
@@ -1094,6 +1118,7 @@ main(int argc, char **argv)
 #endif /* DBG_ON */
 
     /* Dump the cache simulator configuration, cache state and statistics. */
+    dprint_dbg("\n");
     cache_print_sim_config(&g_l1_cache);
     cache_print_cache_data(&g_l1_cache);
     if (cache_util_is_l2_present())

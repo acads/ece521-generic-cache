@@ -25,10 +25,17 @@
 #define CACHE_GET_REPLACEMENT_POLICY(CACHE)     (CACHE->repl_plcy)
 #define CACHE_GET_WRITE_POLICY(CACHE)           (CACHE->write_plcy)
 #define CACHE_GET_NAME(CACHE)                   (CACHE->name)
+#define CACHE_GET_REF_TYPE_STR(MREF)    \
+    (IS_MEM_REF_READ(MREF) ? g_read : g_write)
 
+#if 0
+#define dprint(str, ...)  
+#define dprint_dbg(str, ...) 
+#endif
 #define dprint(str, ...)     printf(str, ##__VA_ARGS__)
-#ifdef DBG_ON
+#define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
 
+#ifdef DBG_ON
 #define dprint_info(str, ...)               \
     printf("cache_info: %s %u# " str,       \
             __func__, __LINE__, ##__VA_ARGS__)

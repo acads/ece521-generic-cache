@@ -118,6 +118,8 @@ extern cache_tagstore_t g_l2_ts;
 extern const char       *g_dirty;
 extern const char       *g_l1_name;
 extern const char       *g_l2_name;
+extern const char       *g_read;
+extern const char       *g_write;
 
 
 /* Function declarations */

@@ -36,15 +36,15 @@ cache_print_sim_config(cache_generic_t *cache)
         l2_assoc = cache->next_cache->set_assoc;
     }
 
-    dprint("  ===== Simulator configuration =====\n");
-    dprint("  L1_BLOCKSIZE: %21u\n", cache->blk_size);
-    dprint("  L1_SIZE: %26u\n", cache->size);
-    dprint("  L1_ASSOC: %25u\n", cache->set_assoc);
-    dprint("  VICTIM_SIZE: %23u\n", cache->victim_size);
-    dprint("  L2_SIZE: %26u\n", l2_size);
-    dprint("  L2_ASSOC: %25u\n", l2_assoc);
-    dprint("  trace_file: %23s\n", cache->trace_file);
-    dprint("  ===================================\n");
+    dprint("===== Simulator configuration =====\n");
+    dprint("L1_BLOCKSIZE: %21u\n", cache->blk_size);
+    dprint("L1_SIZE: %26u\n", cache->size);
+    dprint("L1_ASSOC: %25u\n", cache->set_assoc);
+    dprint("VICTIM_SIZE: %22u\n", cache->victim_size);
+    dprint("L2_SIZE: %26u\n", l2_size);
+    dprint("L2_ASSOC: %25u\n", l2_assoc);
+    dprint("trace_file: %23s\n", cache->trace_file);
+    dprint("===================================\n");
 
     return;
 }
@@ -106,25 +106,25 @@ cache_print_sim_stats(cache_generic_t *cache)
 #endif /* DBG_ON */
 
     dprint("\n");
-    dprint("  ====== Simulation results (raw) ======\n");
-    dprint("  a. number of L1 reads: %15u\n", stats->num_reads);
-    dprint("  b. number of L1 read misses: %9u\n", stats->num_read_misses);
-    dprint("  c. number of L1 writes: %14u\n", stats->num_writes);
-    dprint("  d. number of L1 write misses: %8u\n", stats->num_write_misses);
-    dprint("  e. L1 miss rate: %21.4f\n", miss_rate);
-    dprint("  f. number of swaps: %18u\n", 0); //FIXME
-    dprint("  g. number of victim cache writebacks %5u\n", 0); //FIXME
-    dprint("  h. number of L2 reads: %15u\n", l2_stats.num_reads);
-    dprint("  i. number of L2 read misses: %9u\n", l2_stats.num_read_misses);
-    dprint("  j. number of L2 writes: %14u\n", l2_stats.num_writes);
-    dprint("  k. number of L2 write misses: %8u\n", l2_stats.num_write_misses);
-    dprint("  l. L2 miss rate: %21.4f\n", miss_rate);   //FIXME
-    dprint("  m. number of L2 writebacks: %u\n", 0); //FIXME
-    dprint("  n. total memory traffic: %13u\n", stats->num_blk_mem_traffic);
+    dprint("====== Simulation results (raw) ======\n");
+    dprint("a. number of L1 reads: %20u\n", stats->num_reads);
+    dprint("b. number of L1 read misses: %14u\n", stats->num_read_misses);
+    dprint("c. number of L1 writes: %19u\n", stats->num_writes);
+    dprint("d. number of L1 write misses: %13u\n", stats->num_write_misses);
+    dprint("e. L1 miss rate: %26.4f\n", miss_rate);
+    dprint("f. number of swaps: %23u\n", 0); //FIXME
+    dprint("g. number of victim cache writeback: %6u\n", 0); //FIXME
+    dprint("h. number of L2 reads: %20u\n", l2_stats.num_reads);
+    dprint("i. number of L2 read misses: %14u\n", l2_stats.num_read_misses);
+    dprint("j. number of L2 writes: %19u\n", l2_stats.num_writes);
+    dprint("k. number of L2 write misses: %13u\n", l2_stats.num_write_misses);
+    dprint("l. L2 miss rate: %26.4f\n", miss_rate);   //FIXME
+    dprint("m. number of L2 writebacks: %15u\n", 0); //FIXME
+    dprint("n. total memory traffic: %18u\n", stats->num_blk_mem_traffic);
 
     dprint("\n");
-    dprint("  ==== Simulation results (performance) ====\n");
-    dprint("  1. average access time: %14.4f ns\n", avg_access_time);
+    dprint("==== Simulation results (performance) ====\n");
+    dprint("1. average access time: %14.4f ns\n", avg_access_time);
 
     return;
 }
@@ -160,7 +160,6 @@ cache_print_cache_data(cache_generic_t *cache)
     title = (strncmp(cache->name, g_l1_name, strlen(g_l1_name)) ?
             "===== L2 contents =====" : "===== L1 contents =====");
 
-    //dprint("\n===== L1 contents =====\n");
     dprint("\n%s\n", title);
     for (index = 0; index < num_sets; ++index) {
         tag_index = (index * num_blocks_per_set);
@@ -171,7 +170,7 @@ cache_print_cache_data(cache_generic_t *cache)
         for (block_id = 0; block_id < num_blocks_per_set;
                 ++block_id) {
             dprint(" %7x %s", 
-                    tags[block_id], (tag_data[block_id].dirty) ? g_dirty : "");
+                    tags[block_id], (tag_data[block_id].dirty) ? g_dirty : " ");
         }
         dprint("\n");
     }
