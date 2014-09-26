@@ -24,13 +24,16 @@
 
 #define CACHE_GET_REPLACEMENT_POLICY(CACHE)     (CACHE->repl_plcy)
 #define CACHE_GET_WRITE_POLICY(CACHE)           (CACHE->write_plcy)
+#define CACHE_GET_NAME(CACHE)                   (CACHE->name)
 
 #define dprint(str, ...)     printf(str, ##__VA_ARGS__)
 #ifdef DBG_ON
+
 #define dprint_info(str, ...)               \
-    printf("cache_info %s %u>> " str, __func__, __LINE__, ##__VA_ARGS__)
+    printf("cache_info: %s %u# " str,       \
+            __func__, __LINE__, ##__VA_ARGS__)
 #define dprint_warn(str, ...)               \
-    printf("cache_warn: %s %s %u# " str,     \
+    printf("cache_warn: %s %s %u# " str,    \
             __FILE__, __func__, __LINE__, ##__VA_ARGS__)
 #define dprint_err(str, ...)                \
     printf("cache_err: %s %s %u# " str,     \

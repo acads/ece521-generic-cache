@@ -28,8 +28,8 @@ cache_tagstore_t    g_l2_cache_ts;          /* l2 cache tagstore            */
 cache_generic_t     *g_cache;               /* currently under processing   */
 cache_tagstore_t    *g_ts;                  /* currently under processing   */
 const char          *g_dirty = "D";         /* used to denote dirty blocks  */
-const char          *g_l1_name = "L1 cache";
-const char          *g_l2_name = "L2 cache";
+const char          *g_l1_name = "cache_l1";
+const char          *g_l2_name = "cache_l2";
 
 
 /*************************************************************************** 
@@ -133,8 +133,6 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     l2_size = atoi(input[arg_iter++]);
     l2_set_assoc = atoi(input[arg_iter++]);
     g_l2_present = (l2_size ? TRUE : FALSE);
-    printf("g_l2_present %u\n", g_l2_present);
-    printf("func g_l2_present %u\n", cache_util_is_l2_present());
     
     trace_file = input[arg_iter++];
 
@@ -149,7 +147,7 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     l1_cache->prev_cache = NULL;
     l1_cache->next_cache = (cache_util_is_l2_present() ? l2_cache : NULL);
     l1_cache->stats.cache = l1_cache;
-    dprint_info("l1 cache init successful\n");
+    dprint_info("%s init successful\n", CACHE_GET_NAME(l1_cache));
 
     /* 
      * Force set repl & write policies as they are the only ones 
@@ -171,7 +169,7 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
         l2_cache->next_cache = NULL;
         l2_cache->prev_cache = l1_cache;
         l2_cache->stats.cache = l2_cache;
-        dprint_info("l2 cache init successful\n");
+        dprint_info("%s init successful\n", CACHE_GET_NAME(l2_cache));
     }
 
 exit:
@@ -261,7 +259,8 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
     tagstore->set_ref_count = calloc(1, (num_sets * sizeof(uint32_t)));
 
     if ((!tagstore->index) || (!tagstore->tags) || (!tagstore->tag_data)) {
-        dprint("Error: Unable to allocate memory for cache tagstore.\n");
+        dprint("Error: Unable to allocate memory for cache %s tagstore.\n",
+                CACHE_GET_NAME(cache));
         cache_assert(0);
         goto fatal_exit;
     }
@@ -275,7 +274,7 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
     tagstore->cache = cache;
 
 #ifdef DBG_ON
-    dprint_info("printing ts data..\n");
+    dprint_info("printing ts data for %s\n", CACHE_GET_NAME(cache));
     cache_print_tagstore(cache);
 #endif /* DBG_ON */
 
@@ -377,6 +376,9 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
     uint32_t            tag_index = 0;
     uint64_t            min_age = 0;
     cache_tag_data_t    *tag_data = NULL;
+#ifdef DBG_ON
+    cache_generic_t     *cache = NULL;
+#endif /* DBG_ON */
 
     if ((!tagstore) || (!mref) || (!line)) {
         cache_assert(0);
@@ -396,12 +398,14 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
     }
 
 #ifdef DBG_ON
+    cache = (cache_generic_t *) tagstore->cache;
     printf("LRU index %u\n", line->index);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         printf("    block %u, valid %u, age %lu\n",
                 block_id, tag_data[block_id].valid, tag_data[block_id].age);
     }
-    printf("min_block %u, min_age %lu\n", min_block_id, min_age);
+    printf("%s, min_block %u, min_age %lu\n", CACHE_GET_NAME(cache), 
+            min_block_id, min_age);
 #endif /* DBG_ON */
 
     return min_block_id;
@@ -497,19 +501,24 @@ cache_get_first_invalid_block(cache_tagstore_t *tagstore, cache_line_t *line)
     uint32_t            num_blocks = 0;
     uint32_t            tag_index = 0;
     cache_tag_data_t    *tag_data = NULL;
+    cache_generic_t     *cache = NULL;
 
     if ((!tagstore) || (!line)) {
         cache_assert(0);
         goto error_exit;
     }
 
+    cache = (cache_generic_t *) tagstore->cache;
     num_blocks = tagstore->num_blocks_per_set;
     tag_index = (line->index * num_blocks);
     tag_data = &tagstore->tag_data[tag_index];
 
     for (block_id = 0; block_id < num_blocks; ++block_id) {
-        if (!tag_data[block_id].valid)
+        if (!tag_data[block_id].valid) {
+            dprint_info("index %u, invalid block %u selected from %s\n", 
+                    line->index, block_id, CACHE_GET_NAME(cache));
             return block_id;
+        }
     }
 
 error_exit:
@@ -782,6 +791,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
          *
          * Life is good!
          */
+        dprint_info("cache hit for cache %s, tag 0x%x at index %u, block %u\n",
+                CACHE_GET_NAME(cache), line.tag, line.index, block_id);
         tag_data[block_id].valid = 1;
         tag_data[block_id].age = curr_age;
         tag_data[block_id].ref_count += 1;
@@ -818,11 +829,14 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
          * For all three cases, first find a block to place the to-be-feched
          * data block. 
          */
-
+        dprint_info("cache miss for cache %s, tag 0x%x @ index %u\n",
+                CACHE_GET_NAME(cache), line.tag, line.index);
+#if 0
         if (read_flag)
             cache->stats.num_read_misses += 1;
         else
             cache->stats.num_write_misses += 1;
+#endif
 
         /* Find a block to place the to-be-fetcheed data. */
         block_id = cache_get_first_invalid_block(tagstore, &line);
@@ -830,11 +844,12 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
             /* No free blocks are available. Evict a block from the cache. */
             block_id = cache_evict_tag(cache, mref, &line);
         }
+        dprint_info("cache %s, index %u, block %d selected for tag 0x%x\n",
+                CACHE_GET_NAME(cache), line.index, block_id, line.tag);
 
         /* Check next level cache, if available. */ 
         if (cache->next_cache) {
             mem_ref_t       read_ref;
-            cache_generic_t *next_cache = NULL;
 
             /* 
              * Convert the write reference to read reference if the block is to
@@ -843,17 +858,27 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
             memset(&read_ref, 0, sizeof(read_ref));
             memcpy(&read_ref, mref, sizeof(read_ref));
             read_ref.ref_type = MEM_REF_TYPE_READ;
+            
+            cache_evict_and_add_tag(cache->next_cache, &read_ref);
 
-            /*
-             * Set the globals - curr cache & curr ts to the next level.
-             * Set them back to previous values once the request is processed.
-             */
-            cache_set_current_cache(cache->next_cache, 
-                    cache->next_cache->tagstore);
-            next_cache = cache_get_current_cache();
-            cache_evict_and_add_tag(next_cache, &read_ref);
-            cache_set_current_cache(cache->prev_cache, 
-                    cache->prev_cache->tagstore);
+            tags[block_id] = line.tag;
+            cache->stats.num_blk_mem_traffic += 1;
+            tag_data[block_id].valid = 1;
+            tag_data[block_id].age = curr_age;
+            tag_data[block_id].ref_count = 
+                (util_get_block_ref_count(tagstore, &line) + 1);
+
+            if (read_flag) {
+                cache->stats.num_read_misses += 1;
+            } else {
+                cache->stats.num_write_misses += 1;
+
+                /* Set the block to be dirty only for WBWA write policy. */
+                if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
+                    tag_data[block_id].dirty = 1;
+            }
+            dprint_info("tag 0x%x added to index %u, block %u\n", 
+                    line.tag, line.index, block_id);
         } else {
             /*
              * We are at the last cache and currently handling a miss. 
@@ -1020,7 +1045,7 @@ main(int argc, char **argv)
     if (FALSE == cache_util_validate_input(argc, argv)) {
         printf("Error: Invalid input(s). See usage for help.\n");
         cache_print_usage(argv[0]);
-        goto error_exit;
+        goto usage_exit;
     }
     trace_fpath = argv[argc - 1];
 
@@ -1052,7 +1077,7 @@ main(int argc, char **argv)
     while (fscanf(trace_fptr, "%c %x%c", 
                 &(mem_ref.ref_type), &(mem_ref.ref_addr), &newline) != EOF) {
         /* All requests start at L1 cache. */
-        cache_set_current_cache(&g_l1_cache, &g_l1_cache_ts);
+        //cache_set_current_cache(&g_l1_cache, &g_l1_cache_ts);
 
         dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);
@@ -1083,6 +1108,9 @@ main(int argc, char **argv)
     cache_cleanup(&g_l1_cache);
 
     return 0;
+
+usage_exit:
+    return -1;
 
 error_exit:
     if (trace_fptr)

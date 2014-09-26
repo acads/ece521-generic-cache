@@ -28,12 +28,21 @@
 void
 cache_print_sim_config(cache_generic_t *cache)
 {
+    uint16_t  l2_assoc = 0; 
+    uint32_t l2_size = 0;
+
+    if (cache_util_is_l2_present()) {
+        l2_size = cache->next_cache->size;
+        l2_assoc = cache->next_cache->set_assoc;
+    }
+
     dprint("  ===== Simulator configuration =====\n");
     dprint("  L1_BLOCKSIZE: %21u\n", cache->blk_size);
     dprint("  L1_SIZE: %26u\n", cache->size);
     dprint("  L1_ASSOC: %25u\n", cache->set_assoc);
-    dprint("  L1_REPLACEMENT_POLICY: %12u\n", cache->repl_plcy);
-    dprint("  L1_WRITE_POLICY: %18u\n", cache->write_plcy);
+    dprint("  VICTIM_SIZE: %23u\n", cache->victim_size);
+    dprint("  L2_SIZE: %26u\n", l2_size);
+    dprint("  L2_ASSOC: %25u\n", l2_assoc);
     dprint("  trace_file: %23s\n", cache->trace_file);
     dprint("  ===================================\n");
 
@@ -60,7 +69,12 @@ cache_print_sim_stats(cache_generic_t *cache)
     double          avg_access_time = 0.0;
     double          total_access_time = 0.0;
     double          b_512kb = (512 * 1024);
+    cache_stats_t   l2_stats;
     cache_stats_t   *stats = NULL;
+
+    memset(&l2_stats, 0, sizeof(l2_stats));
+    if (cache_util_is_l2_present())
+        memcpy(&l2_stats, &(cache->next_cache->stats), sizeof(l2_stats));
 
     stats = &(cache->stats);
 
@@ -98,8 +112,15 @@ cache_print_sim_stats(cache_generic_t *cache)
     dprint("  c. number of L1 writes: %14u\n", stats->num_writes);
     dprint("  d. number of L1 write misses: %8u\n", stats->num_write_misses);
     dprint("  e. L1 miss rate: %21.4f\n", miss_rate);
-    dprint("  f. number of writebacks from L1: %5u\n", stats->num_write_backs);
-    dprint("  g. total memory traffic: %13u\n", stats->num_blk_mem_traffic);
+    dprint("  f. number of swaps: %18u\n", 0); //FIXME
+    dprint("  g. number of victim cache writebacks %5u\n", 0); //FIXME
+    dprint("  h. number of L2 reads: %15u\n", l2_stats.num_reads);
+    dprint("  i. number of L2 read misses: %9u\n", l2_stats.num_read_misses);
+    dprint("  j. number of L2 writes: %14u\n", l2_stats.num_writes);
+    dprint("  k. number of L2 write misses: %8u\n", l2_stats.num_write_misses);
+    dprint("  l. L2 miss rate: %21.4f\n", miss_rate);   //FIXME
+    dprint("  m. number of L2 writebacks: %u\n", 0); //FIXME
+    dprint("  n. total memory traffic: %13u\n", stats->num_blk_mem_traffic);
 
     dprint("\n");
     dprint("  ==== Simulation results (performance) ====\n");
@@ -305,9 +326,9 @@ cache_print_tagstore(cache_generic_t *cache)
     dprint("Cache Tag Store Statistics\n");
     dprint("--------------------------\n");
     dprint("# of sets                 : %u\n", cache->tagstore->num_sets);
-    dprint("# of blocks               : %u\n", cache->tagstore->num_blocks);
     dprint("# of blocks/set           : %u\n",
             cache->tagstore->num_blocks_per_set);
+    dprint("# of blocks               : %u\n", cache->tagstore->num_blocks);
     dprint("# of tag index block bits : %u %u %u\n",
             cache->tagstore->num_tag_bits, cache->tagstore->num_index_bits,
             cache->tagstore->num_offset_bits);
