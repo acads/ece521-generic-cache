@@ -596,6 +596,7 @@ cache_handle_dirty_tag_evicts(cache_generic_t *cache, mem_ref_t *mem_ref,
         uint32_t block_id)
 {
     uint32_t            tag_index = 0;
+    uint32_t            *tags = NULL;
     cache_line_t        line;
     cache_tagstore_t    *tagstore = NULL;
     cache_tag_data_t    *tag_data = NULL;
@@ -611,18 +612,28 @@ cache_handle_dirty_tag_evicts(cache_generic_t *cache, mem_ref_t *mem_ref,
     cache_util_decode_mem_addr(tagstore, mem_ref->ref_addr, &line);
 
     tag_index = (line.index * tagstore->num_blocks_per_set);
+    tags = &tagstore->tags[tag_index];
     tag_data = &tagstore->tag_data[tag_index];
 
 
     /* 
-     * If there's another level of cache, issue a write request on that address
-     * to the next cache.
+     * If there's another level of cache, write the dirty block to the next
+     * available cache.
      */
     if ((cache->next_cache) && (CACHE_WRITE_PLCY_WBWA == cache->write_plcy)) {
-        mem_ref_t   write_ref;
+        mem_ref_t       write_ref;
+        cache_line_t    write_line;
 
+        /*
+         * To write the dirty block to next cache, issue a write request to
+         * the next cache by encoding the dirty tag to a memory ref addr and
+         * the ref type as write.
+         */
+        memset(&write_line, 0, sizeof(write_line));
         memset(&write_ref, 0, sizeof(write_ref));
-        memcpy(&write_ref, mem_ref, sizeof(write_ref));
+        write_line.tag = tags[block_id];;
+        write_line.index = line.index;
+        cache_util_encode_mem_addr(tagstore, &write_line, &write_ref);
         write_ref.ref_type = MEM_REF_TYPE_WRITE;
 
         dprint_dbg("LRU WRITE TO %s, INDEX %u, BLOCK %d, DIRTY %u\n",
@@ -836,7 +847,7 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
          * For all three cases, first find a block to place the to-be-feched
          * data block. 
          */
-        dprint_dbg("MISS %s\n", CACHE_GET_NAME(cache));
+        dprint_dbg("MISS %s, TAG %x\n", CACHE_GET_NAME(cache), line.tag);
         dprint_info("cache miss for cache %s, tag 0x%x @ index %u\n",
                 CACHE_GET_NAME(cache), line.tag, line.index);
 

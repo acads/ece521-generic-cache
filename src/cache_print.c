@@ -380,4 +380,3 @@ cache_print_tags(cache_generic_t *cache, cache_line_t *line)
     return;
 }
 
-

@@ -347,3 +347,43 @@ exit:
     return;
 }
 
+
+/***************************************************************************
+ * Name:    cache_util_encode_mem_addr
+ *
+ * Desc:    Encodes the memory addr for the given line and cache.
+ *
+ * Params:
+ *  tagstore    ptr to the tagstore of the cache for which addr is decoded
+ *  line        cache_line containing the tag & index
+ *  mref        ptr to the mem_ref_t struture to store the encoded addr
+ *
+ * Returns: Nothing
+ **************************************************************************/
+void
+cache_util_encode_mem_addr(cache_tagstore_t *tagstore, cache_line_t *line,
+                mem_ref_t *mref)
+{
+    uint8_t         num_index_bits = 0;
+    uint8_t         num_offset_bits = 0;
+    cache_generic_t *cache = NULL;
+
+    if ((!tagstore) || (!line) || (!mref)) {
+        cache_assert(0);
+        goto exit;
+    }
+
+    cache = (cache_generic_t *) tagstore->cache;
+    num_index_bits = tagstore->num_index_bits;
+    num_offset_bits = tagstore->num_offset_bits;
+
+    mref->ref_addr = ((line->tag << (num_index_bits + num_offset_bits)) |
+            (line->index << num_offset_bits));
+
+    dprint_info("%s, addr_encode tag 0x%x, index %u, addr 0x%x\n",
+            CACHE_GET_NAME(cache), line->tag, line->index, mref->ref_addr);
+
+exit:
+    return;
+}
+

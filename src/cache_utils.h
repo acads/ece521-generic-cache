@@ -29,11 +29,11 @@
     (IS_MEM_REF_READ(MREF) ? g_read : g_write)
 
 #if 0
-#define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
 #define dprint(str, ...)  
+#define dprint_dbg(str, ...) 
 #endif
 #define dprint(str, ...)     printf(str, ##__VA_ARGS__)
-#define dprint_dbg(str, ...) 
+#define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
 
 #ifdef DBG_ON
 #define dprint_info(str, ...)               \
@@ -67,6 +67,9 @@ cache_util_validate_input(int nargs, char **args);
 void
 cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr, 
         cache_line_t *line);
+void
+cache_util_encode_mem_addr(cache_tagstore_t *tagstore, cache_line_t *line,
+        mem_ref_t *mref);
 inline boolean
 cache_util_is_l2_present(void);
 inline boolean
