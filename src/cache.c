@@ -922,9 +922,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
     }   /* End of cache miss processing */
 
 exit:
-//#ifdef DBG_ON
+#ifdef DBG_ON
     cache_print_tags(cache, &line);
-//#endif /* DBG_ON */
+#endif /* DBG_ON */
     return;
 }
 
