@@ -29,11 +29,11 @@
     (IS_MEM_REF_READ(MREF) ? g_read : g_write)
 
 #if 0
+#define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
 #define dprint(str, ...)  
-#define dprint_dbg(str, ...) 
 #endif
 #define dprint(str, ...)     printf(str, ##__VA_ARGS__)
-#define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
+#define dprint_dbg(str, ...) 
 
 #ifdef DBG_ON
 #define dprint_info(str, ...)               \

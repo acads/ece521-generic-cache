@@ -120,6 +120,7 @@ extern const char       *g_l1_name;
 extern const char       *g_l2_name;
 extern const char       *g_read;
 extern const char       *g_write;
+extern uint32_t         g_addr_count;
 
 
 /* Function declarations */

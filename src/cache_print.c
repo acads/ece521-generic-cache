@@ -336,19 +336,21 @@ cache_print_tagstore(cache_generic_t *cache)
 
 }
 
+#endif /* DBG_ON */
 
 /*************************************************************************** 
- * Name:    cache_print_debug_data
+ * Name:    cache_print_tags
  *
  * Desc:    Prints cache state for a given cache line.
  *
  * Params:
- *  pcache  ptr to cache whose details are to be printed
+ *  cache       ptr to cache whose details are to be printed
+ *  line        cache_line for the given cache & referenced memory addr
  *
  * Returns: Nothing
  **************************************************************************/
 void
-cache_print_debug_data(cache_generic_t *cache, cache_line_t *line)
+cache_print_tags(cache_generic_t *cache, cache_line_t *line)
 {
     char                *dirty_str = NULL;
     uint32_t            *tags = NULL;
@@ -364,18 +366,18 @@ cache_print_debug_data(cache_generic_t *cache, cache_line_t *line)
     tags = &tagstore->tags[tag_index];
     tag_data = &tagstore->tag_data[tag_index];
 
-    dprint("Changed set %u: ", line->index);
+    dprint("%6u %s set %2u: ", 
+            g_addr_count, CACHE_GET_NAME(cache), line->index);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         dirty_str = ((tag_data[block_id].dirty) ? "D" : "");
         if (tags[block_id])
-            dprint("%8x %s", tags[block_id], dirty_str);
+            dprint("%8x %1s", tags[block_id], dirty_str);
         else
-            dprint("%8s %s", "-", dirty_str);
+            dprint("%8s %1s", "-", dirty_str);
     }
     dprint("\n");
 
     return;
 }
 
-#endif /* DBG_ON */
 

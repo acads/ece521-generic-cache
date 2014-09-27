@@ -29,9 +29,9 @@ void
 cache_print_cache_dbg_data(cache_generic_t *pcache);
 void
 cache_print_tagstore(cache_generic_t *cache);
-void
-cache_print_debug_data(cache_generic_t *cache, cache_line_t *line);
 #endif /* DBG_ON */
+void
+cache_print_tags(cache_generic_t *cache, cache_line_t *line);
 
 #endif /* CACHE_PRINT_H */
 

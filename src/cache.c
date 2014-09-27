@@ -402,7 +402,7 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
 
 #ifdef DBG_ON
     cache = (cache_generic_t *) tagstore->cache;
-    printf("LRU index %u\n", line->index);
+    printf("%s, LRU index %u\n", CACHE_GET_NAME(cache), line->index);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         printf("    block %u, valid %u, age %lu\n",
                 block_id, tag_data[block_id].valid, tag_data[block_id].age);
@@ -773,16 +773,6 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
     }
     tagstore = cache->tagstore;
 
-#if 0
-    /* 
-     * Update the current cache with the incoming cache and get the cache 
-     * under processing. 
-     * */
-    cache_set_current_cache(in_cache, in_cache->tagstore);
-    cache = cache_get_current_cache();
-    tagstore = cache_get_curr_tagstore();
-#endif
-
     /* Fetch the current time to be used for tag age (for LRU). */
     curr_age = util_get_curr_time(); 
 
@@ -828,8 +818,6 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                 cache->stats.num_blk_mem_traffic += 1;
              }
         }
-        dprint_info("tag 0x%x already present in index %u, block %u\n",
-                line.tag, line.index, block_id);
     } else {
         /* Cache miss! 
          * Well, life is not always so good..
@@ -851,19 +839,14 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
         dprint_dbg("MISS %s\n", CACHE_GET_NAME(cache));
         dprint_info("cache miss for cache %s, tag 0x%x @ index %u\n",
                 CACHE_GET_NAME(cache), line.tag, line.index);
-#if 0
-        if (read_flag)
-            cache->stats.num_read_misses += 1;
-        else
-            cache->stats.num_write_misses += 1;
-#endif
 
-        /* Find a block to place the to-be-fetcheed data. */
+        /* 
+         * Find a block to place the to-be-fetcheed data. Go for block eviction
+         * if no free blocks are available.
+         */
         block_id = cache_get_first_invalid_block(tagstore, &line);
-        if (CACHE_RV_ERR == block_id) {
-            /* No free blocks are available. Evict a block from the cache. */
+        if (CACHE_RV_ERR == block_id)
             block_id = cache_evict_tag(cache, mref, &line);
-        }
         dprint_info("cache %s, index %u, block %d selected for tag 0x%x\n",
                 CACHE_GET_NAME(cache), line.index, block_id, line.tag);
 
@@ -872,8 +855,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
             mem_ref_t       read_ref;
 
             /* 
-             * Convert the write reference to read reference if the block is to
-             * be fetched from next level.
+             * For cache misses, issues a read reference for that address
+             * to the next cache level.
              */
             memset(&read_ref, 0, sizeof(read_ref));
             memcpy(&read_ref, mref, sizeof(read_ref));
@@ -927,87 +910,10 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
         }   /* End of last level cache processing */
     }   /* End of cache miss processing */
 
-#if 0
-    } else if (CACHE_RV_ERR != 
-            (block_id = cache_get_first_invalid_block(tagstore, line))) {
-        /* 
-         * All blocks are invalid. This usually happens when the cache is
-         * being used for the first time. Place the tag in the 1st available 
-         * block. 
-         */
-
-        if ((!read_flag) && 
-                (CACHE_WRITE_PLCY_WTNA == CACHE_GET_WRITE_POLICY(cache))) {
-            /* Don't bother for writes when the policy is set to WTNA. */
-            cache->stats.num_write_misses += 1;
-            cache->stats.num_blk_mem_traffic += 1;
-            goto exit;
-        }
-
-        tags[block_id] = line->tag;
-
-        cache->stats.num_blk_mem_traffic += 1;
-        tag_data[block_id].valid = 1;
-        tag_data[block_id].age = curr_age;
-        tag_data[block_id].ref_count = 
-            (util_get_block_ref_count(tagstore, line) + 1);
-        if (read_flag) {
-            cache->stats.num_read_misses += 1;
-        } else {
-            cache->stats.num_write_misses += 1;
-
-            /* Set the block to be dirty only for WBWA write policy. */
-            if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
-                tag_data[block_id].dirty = 1;
-        }
-        dprint_info("tag 0x%x added to index %u, block %u\n", 
-                line->tag, line->index, block_id);
-    } else {
-        /*
-         * Neither a tag match was found nor a free block to place the tag.
-         * Evict an existing tag based on the replacement policy set and place
-         * the new tag on that block.
-         */
-         
-        if ((!read_flag) && 
-                (CACHE_WRITE_PLCY_WTNA == CACHE_GET_WRITE_POLICY(cache))) {
-            /* Don't bother with write misses for WTNA write policy. */
-            cache->stats.num_write_misses += 1;
-            cache->stats.num_blk_mem_traffic += 1;
-            goto exit;
-        }
-
-        block_id = cache_evict_tag(cache, mem_ref, line);
-        tags[block_id] = line->tag;
-
-
-        cache->stats.num_blk_mem_traffic += 1;
-        tag_data[block_id].valid = 1;
-        tag_data[block_id].age = curr_age;
-        tag_data[block_id].ref_count = 
-            (util_get_block_ref_count(tagstore, line) + 1);
-
-#ifdef DBG_ON
-        printf("set %u, block %u, tag 0x%x, block_ref_count %u\n",
-                line->index, block_id, tags[block_id], 
-                tag_data[block_id].ref_count);
-#endif /* DBG_ON */
-
-        if (read_flag) {
-            cache->stats.num_read_misses += 1;
-        } else {
-            cache->stats.num_write_misses += 1;
-            tag_data[block_id].dirty = 1;
-        }
-        dprint_info("tag 0x%x added to index %u, block %d after eviction\n",
-                line->tag, line->index, block_id);
-    }
-#endif
-
 exit:
-#ifdef DBG_ON
-    cache_print_debug_data(cache, &line);
-#endif /* DBG_ON */
+//#ifdef DBG_ON
+    cache_print_tags(cache, &line);
+//#endif /* DBG_ON */
     return;
 }
 
@@ -1100,8 +1006,8 @@ main(int argc, char **argv)
                 &(mem_ref.ref_type), &(mem_ref.ref_addr), &newline) != EOF) {
         /* All requests start at L1 cache. */
         //cache_set_current_cache(&g_l1_cache, &g_l1_cache_ts);
-
-        dprint_dbg("\n%u. Address %x %s\n", ++g_addr_count, mem_ref.ref_addr,
+        g_addr_count += 1;
+        dprint_dbg("\n%u. Address %x %s\n", g_addr_count, mem_ref.ref_addr,
                 CACHE_GET_REF_TYPE_STR((&mem_ref)));
         dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);
