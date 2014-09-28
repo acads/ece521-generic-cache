@@ -387,3 +387,49 @@ exit:
     return;
 }
 
+
+/***************************************************************************
+ * Name:    cache_util_get_lru_block_id
+ *
+ * Desc:    Gets the LRU block ID for a given cache line.
+ *
+ * Params:
+ *  tagstore    ptr to the tagstore of the cache for which addr is decoded
+ *  line        cache line whose LRU block ID is reuqired
+ *
+ * Returns: int8_t
+ *  LRU block ID if everything goes well
+ *  CACHE_RV_ERR on failure
+ **************************************************************************/
+int8_t
+cache_util_get_lru_block_id(cache_tagstore_t *tagstore, cache_line_t *line)
+{
+    uint8_t             block_id = 0;
+    uint8_t             min_block_id = 0;
+    uint64_t            min_block_age = 0;
+    uint32_t            num_blocks = 0;
+    cache_tag_data_t    *tag_data = NULL;
+
+    if ((!tagstore) || (!line)) {
+        cache_assert(0);
+        goto error_exit;
+    }
+
+    num_blocks = tagstore->num_blocks_per_set;
+    tag_data = &tagstore->tag_data[line->index * num_blocks];
+    
+    for (block_id = 0, min_block_age = tag_data[block_id].age; 
+            block_id < num_blocks; ++block_id) {
+        if ((tag_data[block_id].valid) && 
+                (tag_data[block_id].age < min_block_age)) {
+            min_block_id = block_id;
+            min_block_age = tag_data[block_id].age;
+        }
+    }
+
+    return min_block_id;
+
+error_exit:
+    return CACHE_RV_ERR;
+}
+

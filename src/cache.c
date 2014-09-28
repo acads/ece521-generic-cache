@@ -252,6 +252,7 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
     tagstore->num_blocks = num_sets * num_blocks_per_set;
 
     /* Allocate memory to store indices, tags and tag data. */ 
+    tagstore->lru_block_id = calloc(1, num_sets * sizeof(uint8_t));
     tagstore->index = 
         calloc(1, (num_sets * sizeof(uint32_t)));
     tagstore->tags = 
@@ -336,6 +337,9 @@ cache_tagstore_cleanup(cache_generic_t *cache, cache_tagstore_t *tagstore)
         goto exit;
     }
 
+    if (tagstore->lru_block_id)
+        free(tagstore->lru_block_id);
+
     if (tagstore->index)
         free(tagstore->index);
 
@@ -399,6 +403,7 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
             min_age = tag_data[block_id].age;
         }
     }
+    tagstore->lru_block_id[line->index] = min_block_id;
 
 #ifdef DBG_ON
     cache = (cache_generic_t *) tagstore->cache;
@@ -407,6 +412,7 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
         printf("    block %u, valid %u, age %lu\n",
                 block_id, tag_data[block_id].valid, tag_data[block_id].age);
     }
+ 
     printf("%s, min_block %u, min_age %lu\n", CACHE_GET_NAME(cache), 
             min_block_id, min_age);
 #endif /* DBG_ON */
@@ -698,6 +704,7 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
                 goto error_exit;
             break;
 
+#if 0
         case CACHE_REPL_PLCY_LFU:
             block_id = cache_get_lfu_block(tagstore, mref, line);
             if (CACHE_RV_ERR == block_id)
@@ -717,6 +724,7 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
                     tagstore->set_ref_count[line->index],
                     tagstore->tag_data[tag_index + block_id].ref_count);
 #endif /* DBG_ON */
+#endif /* if 0 */
             break;
 
         default:
@@ -893,8 +901,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                 if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
                     tag_data[block_id].dirty = 1;
             }
-            dprint_info("tag 0x%x added to index %u, block %u\n", 
-                    line.tag, line.index, block_id);
+            dprint_info("%s, tag 0x%x added to index %u, block %u\n", 
+                    CACHE_GET_NAME(cache), line.tag, line.index, block_id);
         } else {
             /*
              * We are at the last cache and currently handling a miss. 
@@ -916,8 +924,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                 if (CACHE_WRITE_PLCY_WBWA == CACHE_GET_WRITE_POLICY(cache))
                     tag_data[block_id].dirty = 1;
             }
-            dprint_info("tag 0x%x added to index %u, block %u\n", 
-                    line.tag, line.index, block_id);
+            dprint_info("%s, tag 0x%x added to index %u, block %u\n", 
+                    CACHE_GET_NAME(cache), line.tag, line.index, block_id);
         }   /* End of last level cache processing */
     }   /* End of cache miss processing */
 

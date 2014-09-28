@@ -29,11 +29,11 @@
     (IS_MEM_REF_READ(MREF) ? g_read : g_write)
 
 #if 0
-#define dprint(str, ...)  
 #define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
+#define dprint(str, ...)  
 #endif
-#define dprint(str, ...)     printf(str, ##__VA_ARGS__)
 #define dprint_dbg(str, ...)
+#define dprint(str, ...)     printf(str, ##__VA_ARGS__)
 
 #ifdef DBG_ON
 #define dprint_info(str, ...)               \
@@ -74,7 +74,8 @@ inline boolean
 cache_util_is_l2_present(void);
 inline boolean
 cache_util_is_victim_present(void);
-
+int8_t
+cache_util_get_lru_block_id(cache_tagstore_t *tagstore, cache_line_t *line);
 boolean
 util_is_power_of_2(uint32_t num);
 uint32_t

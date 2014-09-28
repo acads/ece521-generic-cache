@@ -71,6 +71,7 @@ typedef struct cache_tagstore__ {
     uint8_t             num_tag_bits;           /* # of bits for tags       */
     uint8_t             num_index_bits;         /* # of bits for index      */
     uint8_t             num_offset_bits;        /* # of bits for blk offset */
+    uint8_t             *lru_block_id;          /* LRU block within the set */
     uint32_t            *index;                 /* ptr to tag indices       */
     uint32_t            *tags;                  /* ptr to tag array         */
     cache_tag_data_t    *tag_data;              /* ptr to tag stats         */

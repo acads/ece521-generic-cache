@@ -366,8 +366,8 @@ cache_print_tags(cache_generic_t *cache, cache_line_t *line)
     tags = &tagstore->tags[tag_index];
     tag_data = &tagstore->tag_data[tag_index];
 
-    dprint("%6u %s set %2u: ", 
-            g_addr_count, CACHE_GET_NAME(cache), line->index);
+    dprint("%6u %s [%2u, %6x]: ",
+            g_addr_count, CACHE_GET_NAME(cache), line->index, line->tag);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         dirty_str = ((tag_data[block_id].dirty) ? "D" : "");
         if (tags[block_id])
