@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 #include "cache.h"
@@ -146,16 +147,19 @@ cache_print_cache_data(cache_generic_t *cache)
     char                *title = NULL;
     uint32_t            index = 0;
     uint32_t            tag_index = 0;
+    uint32_t            id = 0;
     uint32_t            block_id = 0;
     uint32_t            num_sets = 0;
     uint32_t            num_blocks_per_set = 0;
     uint32_t            *tags = NULL;
+    uint64_t            *tag_ages = NULL;
     cache_tag_data_t    *tag_data = NULL;
     cache_tagstore_t    *tagstore = NULL;
 
     tagstore = cache->tagstore;
     num_sets = tagstore->num_sets;
     num_blocks_per_set = tagstore->num_blocks_per_set;
+    tag_ages = (uint64_t *) calloc(1, (num_blocks_per_set * sizeof(uint64_t)));
 
     title = (strncmp(cache->name, g_l1_name, strlen(g_l1_name)) ?
             "===== L2 contents =====" : "===== L1 contents =====");
@@ -165,15 +169,35 @@ cache_print_cache_data(cache_generic_t *cache)
         tag_index = (index * num_blocks_per_set);
         tags = &tagstore->tags[tag_index];
         tag_data = &tagstore->tag_data[tag_index];
-        dprint("set%4u: ", index);
+
+        /*
+         * Copy the tag ages for sorting. TAs decided to print the tags by
+         * their ages. Recent tags goes first.
+         *
+         * qsort the tags, match them back to the block IDs and print the
+         * tags accordingly!
+         */
+        for (block_id = 0; block_id < num_blocks_per_set; ++block_id)
+            tag_ages[block_id] = tag_data[block_id].age;
+
+        qsort(tag_ages, num_blocks_per_set,
+                sizeof(uint64_t), util_compare_uint64);
         
-        for (block_id = 0; block_id < num_blocks_per_set;
-                ++block_id) {
-            dprint(" %7x %s", 
-                    tags[block_id], (tag_data[block_id].dirty) ? g_dirty : " ");
+        dprint("set%4u: ", index);
+        for (id = 0; id < num_blocks_per_set; ++id) {
+            for (block_id = 0; block_id < num_blocks_per_set; ++block_id) {
+                if ((tag_ages[id]) &&
+                        (tag_data[block_id].age == tag_ages[id])) {
+                    dprint(" %7x %s",
+                        tags[block_id],
+                        (tag_data[block_id].dirty) ? g_dirty : " ");
+                    tag_ages[id] = 0;
+                }
+            }
         }
         dprint("\n");
     }
+    free(tag_ages);
 
     return;
 }

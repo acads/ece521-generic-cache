@@ -242,6 +242,31 @@ util_is_power_of_2(uint32_t num)
 }
 
 
+/***************************************************************************
+ * Name:    util_compare_uint64
+ *
+ * Desc:    Non-increasing type qsort comparator for uint64_t
+ *
+ * Params:
+ * a        ptr to data A
+ * b        ptr to data B
+ *
+ * Returns: int
+ * > 0, if b is greater than a
+ * < 0, if a is greater than b
+ * 0, if a and b are equal
+ **************************************************************************/
+int
+util_compare_uint64(const void *a, const void *b)
+{
+    const uint64_t *loc_a = (const uint64_t *) a;
+    const uint64_t *loc_b = (const uint64_t *) b;
+
+    /* Sorts in non-inreasing order. */
+    return (*loc_b - *loc_a);
+}
+
+
 /*************************************************************************** 
  * Name:    cache_util_validate_input
  *
@@ -432,4 +457,5 @@ cache_util_get_lru_block_id(cache_tagstore_t *tagstore, cache_line_t *line)
 error_exit:
     return CACHE_RV_ERR;
 }
+
 

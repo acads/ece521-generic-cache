@@ -84,6 +84,7 @@ inline uint64_t
 util_get_curr_time(void);
 inline uint32_t
 util_get_block_ref_count(cache_tagstore_t *tagstore, cache_line_t *line);
-
+int
+util_compare_uint64(const void *a, const void *b);
 #endif /* CACHE_UTILS_H_ */
 
