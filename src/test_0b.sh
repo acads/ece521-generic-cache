@@ -53,14 +53,14 @@ function print_line()
 function run6()
 {
     run_start
-    echo "time ./sim_cache 32 2048 4 0 0 0 gcc_trace.txt > b6"
-    time ./sim_cache 32 2048 4 0 0 0 gcc_trace.txt > b6
+    echo "time ./sim_cache 32 2048 4 0 4096 8 gcc_trace.txt > b6"
+    time ./sim_cache 32 2048 4 0 4096 8 gcc_trace.txt > b6
     run_end
 
     echo " "
 
     diff_start
-    diff -iw b6 old_b6
+    diff -iw b6 ../docs/Validation6_PartB.txt
     diff_end
 
 }
