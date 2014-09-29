@@ -131,6 +131,86 @@ util_get_block_ref_count(cache_tagstore_t *tagstore, cache_line_t *line)
 
 
 /*************************************************************************** 
+ * Name:    util_log_base_2
+ *
+ * Desc:    Computes the log_base_2 of the given number
+ *
+ * Params:
+ *  num     32-bit uint whose log_base_2 is to be computed
+ *
+ * Returns: uint32_t
+ *  Returns the log_base_2 of num
+ *
+ * Note:    This is only for numbers that are power of 2
+ **************************************************************************/
+uint32_t
+util_log_base_2(uint32_t num)
+{
+    uint32_t result = 0;
+    uint32_t tmp = 0;
+
+    if (1 == num)
+        return 0;
+
+    tmp = num;
+    while (tmp >>= 1)
+        result += 1;
+
+    return result;
+}
+
+
+/***************************************************************************
+ * Name:    util_is_power_of_2
+ *
+ * Desc:    Checks whether a given number is a power of 2 or not
+ *
+ * Params:
+ *  num     unsigned 32-bit int which is to be tested for power of 2
+ *
+ * Returns: boolean
+ *  TRUE if num is a power of two
+ *  FALSE otherwise or if num is 0
+ **************************************************************************/
+boolean
+util_is_power_of_2(uint32_t num)
+{
+    if (0 == num)
+        return FALSE;
+
+    if (num & (num - 1))
+        return FALSE;
+
+    return TRUE;
+}
+
+
+/***************************************************************************
+ * Name:    util_compare_uint64
+ *
+ * Desc:    Non-increasing type qsort comparator for uint64_t
+ *
+ * Params:
+ * a        ptr to data A
+ * b        ptr to data B
+ *
+ * Returns: int
+ * > 0, if b is greater than a
+ * < 0, if a is greater than b
+ * 0, if a and b are equal
+ **************************************************************************/
+int
+util_compare_uint64(const void *a, const void *b)
+{
+    const uint64_t *loc_a = (const uint64_t *) a;
+    const uint64_t *loc_b = (const uint64_t *) b;
+
+    /* Sorts in non-inreasing order. */
+    return (*loc_b - *loc_a);
+}
+
+
+/***************************************************************************
  * Name:    cache_util_is_block_dirty
  *
  * Desc:    Checks whether the given block is dirty or not
@@ -191,79 +271,52 @@ cache_util_is_victim_present(void)
 
 
 /*************************************************************************** 
- * Name:    util_log_base_2
+ * Name:    cache_util_get_l1 
  *
- * Desc:    Computes the log_base_2 of the given number
+ * Desc:    Returns a ptr to the L1 cache, if present.
  *
- * Params:
- *  num     32-bit uint whose log_base_2 is to be computed
+ * Params:  None
  *
- * Returns: uint32_t
- *  Returns the log_base_2 of num
- *
- * Note:    This is only for numbers that are power of 2
+ * Returns: ptr to cache_generic_t, for L1 cache
  **************************************************************************/
-uint32_t
-util_log_base_2(uint32_t num)
+inline cache_generic_t *
+cache_util_get_l1(void)
 {
-    uint32_t result = 0;
-    uint32_t tmp = 0;
-
-    tmp = num;
-    while (tmp >>= 1)
-        result += 1;
-
-    return result;
+    return &g_l1_cache;
 }
 
-
+    
 /*************************************************************************** 
- * Name:    util_is_power_of_2
+ * Name:    cache_util_get_vc
  *
- * Desc:    Checks whether a given number is a power of 2 or not
+ * Desc:    Returns a ptr to the victim cache, if present.
  *
- * Params:
- *  num     unsigned 32-bit int which is to be tested for power of 2
+ * Params:  None
  *
- * Returns: boolean
- *  TRUE if num is a power of two
- *  FALSE otherwise or if num is 0
+ * Returns: ptr to cache_generic_t
+ * for victim cache, if present; NULL, otherwise
  **************************************************************************/
-boolean
-util_is_power_of_2(uint32_t num)
+inline cache_generic_t *
+cache_util_get_vc(void)
 {
-    if (0 == num)
-        return FALSE;
-
-    if (num & (num - 1))
-        return FALSE;
-
-    return TRUE;
+    return &g_vic_cache;
 }
 
-
-/***************************************************************************
- * Name:    util_compare_uint64
+    
+/*************************************************************************** 
+ * Name:    cache_util_get_l2
  *
- * Desc:    Non-increasing type qsort comparator for uint64_t
+ * Desc:    Returns a ptr to the L2, if present.
  *
- * Params:
- * a        ptr to data A
- * b        ptr to data B
+ * Params:  None
  *
- * Returns: int
- * > 0, if b is greater than a
- * < 0, if a is greater than b
- * 0, if a and b are equal
+ * Returns: ptr to cache_generic_t
+ * for L2 cache, if present; NULL, otherwise
  **************************************************************************/
-int
-util_compare_uint64(const void *a, const void *b)
+inline cache_generic_t *
+cache_util_get_l2(void)
 {
-    const uint64_t *loc_a = (const uint64_t *) a;
-    const uint64_t *loc_b = (const uint64_t *) b;
-
-    /* Sorts in non-inreasing order. */
-    return (*loc_b - *loc_a);
+    return &g_l2_cache;
 }
 
 

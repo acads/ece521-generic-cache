@@ -22,6 +22,7 @@
 #define CACHE_LEVEL_1           1
 #define CACHE_LEVEL_2           2
 #define CACHE_LEVEL_3           3
+#define CACHE_LEVEL_L1_VICTIM   6
 #define CACHE_NAME_LEN          24
 #define CACHE_ADDR_32BIT_LEN    32
 #define CACHE_TRACE_FILE_LEN    256
@@ -114,11 +115,11 @@ extern boolean          g_l2_present;
 extern boolean          g_victim_present;
 extern cache_generic_t  g_l1_cache;
 extern cache_generic_t  g_l2_cache;
-extern cache_tagstore_t g_l1_ts;
-extern cache_tagstore_t g_l2_ts;
+extern cache_generic_t  g_vic_cache;
 extern const char       *g_dirty;
 extern const char       *g_l1_name;
 extern const char       *g_l2_name;
+extern const char       *g_vic_name;
 extern const char       *g_read;
 extern const char       *g_write;
 extern uint32_t         g_addr_count;
@@ -126,8 +127,8 @@ extern uint32_t         g_addr_count;
 
 /* Function declarations */
 void
-cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache, 
-        int num_args, char **argv);
+cache_init(cache_generic_t *l1_cache, cache_generic_t *vic_cache,
+        cache_generic_t *l2_cache, int num_args, char **argv);
 void
 cache_cleanup(cache_generic_t *pcache);
 void
@@ -159,12 +160,14 @@ cache_handle_dirty_tag_evicts(cache_generic_t *cache, mem_ref_t *mem_ref,
         uint32_t block_id);
 void
 cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mem_ref);
+
+#if 0
 inline void
 cache_set_current_cache(cache_generic_t *cache, cache_tagstore_t *tagstore);
 inline cache_generic_t *
 cache_get_current_cache(void);
 inline cache_tagstore_t *
 cache_util_get_current_ts();
-
+#endif
 #endif /* CACHE_H_ */
 

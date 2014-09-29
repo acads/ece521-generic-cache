@@ -21,74 +21,23 @@
 /* Globals */
 boolean             g_l2_present = FALSE;       /* l2 cache present?        */
 boolean             g_victim_present = FALSE;   /* victim cache present?    */
+
 cache_generic_t     g_l1_cache;             /* primary l1 cache             */
-cache_tagstore_t    g_l1_cache_ts;          /* primary cache tagstore       */
 cache_generic_t     g_l2_cache;             /* l2 cache                     */
+cache_generic_t     g_vic_cache;            /* victim cache for L1          */
+
+cache_tagstore_t    g_l1_cache_ts;          /* primary cache tagstore       */
 cache_tagstore_t    g_l2_cache_ts;          /* l2 cache tagstore            */
-cache_generic_t     *g_cache;               /* currently under processing   */
-cache_tagstore_t    *g_ts;                  /* currently under processing   */
+cache_tagstore_t    g_vic_cache_ts;         /* victim cache tagstore        */
+
+uint32_t            g_addr_count;           /* ID for mref from trace file  */
+
 const char          *g_dirty = "D";         /* used to denote dirty blocks  */
-const char          *g_l1_name = "L1";//"cache_l1";
-const char          *g_l2_name = "L2";//"cache_l2";
-const char          *g_read = "READ";
-const char          *g_write = "WRITE";
-uint32_t            g_addr_count;
-
-
-/*************************************************************************** 
- * Name:    cache_set_current_cache
- *
- * Desc:    Points the global current cache to the passed cache. Likewise 
- *          for tagstore.
- *
- * Params:  
- *  cache       ptr to the cache to be set as current cache
- *  tagstore    ptr to the ts to be set as current ts
- *
- * Returns: Nothing
- **************************************************************************/
-inline void
-cache_set_current_cache(cache_generic_t *cache, cache_tagstore_t *tagstore)
-{
-    g_cache = cache;
-    g_ts = tagstore;
-
-    dprint_info("current active cache changed to %s\n", g_cache->name);
-
-    return;
-}
-
-
-/*************************************************************************** 
- * Name:    cache_get_current_cache
- *
- * Desc:    Fetches a ptr to the current cache under processing 
- *
- * Params:  None 
- *
- * Returns: Pointer to the currently active cache
- **************************************************************************/
-inline cache_generic_t *
-cache_get_current_cache(void)
-{
-    return g_cache;
-}
-
-
-/*************************************************************************** 
- * Name:    cache_get_current_ts
- *
- * Desc:    Fetches a ptr to the current tagstore under processing 
- *
- * Params:  None 
- *
- * Returns: Pointer to the currently active tagstore
- **************************************************************************/
-inline cache_tagstore_t *
-cache_get_current_tagstore(void)
-{
-    return g_ts;
-}
+const char          *g_l1_name = "L1";      /* L1 cache name                */
+const char          *g_vic_name = "VC";     /* victim cache name            */
+const char          *g_l2_name = "L2";      /* L2 cache name                */
+const char          *g_read = "READ";       /* mref READ type string        */
+const char          *g_write = "WRITE";     /* mref WRITE type string       */
 
 
 /*************************************************************************** 
@@ -98,16 +47,17 @@ cache_get_current_tagstore(void)
  *          the user given cache configuration.
  *
  * Params:  
- *  l1_cache    ptr to the cache being initialized
- *  l2_cache    ptr to L2 cache
+ *  l1_cache    ptr to the L1 cache 
+ *  vic_cache   ptr to the victim cache
+ *  l2_cache    ptr to the L2 cache
  *  num_args    # of input arguments
  *  input       ptr to input list
  *
  * Returns: Nothing
  **************************************************************************/
 void
-cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache, 
-        int num_args, char **input)
+cache_init(cache_generic_t *l1_cache, cache_generic_t *vic_cache,
+        cache_generic_t *l2_cache, int num_args, char **input)
 {
     char        *trace_file = NULL;
     uint8_t     arg_iter = 1;
@@ -126,6 +76,10 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     memset(l1_cache, 0, sizeof(*l1_cache));
     memset(l2_cache, 0, sizeof(*l2_cache));
 
+    /* Parse and store the input.
+     * sim_cache <block-size> <l1-cache-size> <l1-set-assoc>
+     *          <victim-cache-size> <l2-cache-size> <l2-set-assoc> <trace-file>
+     */
     blk_size = atoi(input[arg_iter++]);
     l1_size = atoi(input[arg_iter++]);
     l1_set_assoc = atoi(input[arg_iter++]);
@@ -134,8 +88,8 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     g_victim_present = (victim_size ? TRUE : FALSE);
 
     l2_size = atoi(input[arg_iter++]);
-    l2_set_assoc = atoi(input[arg_iter++]);
     g_l2_present = (l2_size ? TRUE : FALSE);
+    l2_set_assoc = atoi(input[arg_iter++]);
     
     trace_file = input[arg_iter++];
 
@@ -146,18 +100,28 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
     l1_cache->level = CACHE_LEVEL_1;
     l1_cache->set_assoc = l1_set_assoc;
     l1_cache->blk_size = blk_size;
+    l1_cache->repl_plcy = CACHE_REPL_PLCY_LRU;
+    l1_cache->write_plcy = CACHE_WRITE_PLCY_WBWA;
     l1_cache->victim_size = victim_size;
-    l1_cache->prev_cache = NULL;
-    l1_cache->next_cache = (cache_util_is_l2_present() ? l2_cache : NULL);
     l1_cache->stats.cache = l1_cache;
     dprint_info("%s init successful\n", CACHE_GET_NAME(l1_cache));
 
-    /* 
-     * Force set repl & write policies as they are the only ones 
-     * supported as of now. 
-     * */
-    l1_cache->repl_plcy = CACHE_REPL_PLCY_LRU;
-    l1_cache->write_plcy = CACHE_WRITE_PLCY_WBWA;
+
+    /* Init victim cache. */
+    if (cache_util_is_victim_present()) {
+        strncpy(vic_cache->name, g_vic_name, (CACHE_NAME_LEN - 1));
+        strncpy(vic_cache->trace_file, trace_file,
+                (CACHE_TRACE_FILE_LEN - 1));
+        vic_cache->size = victim_size;
+        vic_cache->level = CACHE_LEVEL_L1_VICTIM;
+        vic_cache->blk_size = blk_size;
+        vic_cache->repl_plcy = CACHE_REPL_PLCY_LRU;
+        vic_cache->write_plcy = CACHE_WRITE_PLCY_WBWA;
+        vic_cache->stats.cache = vic_cache;
+        vic_cache->set_assoc = /* VC is a fully associative cache. */
+            (vic_cache->size / vic_cache->blk_size);
+        dprint_info("%s init successful\n", CACHE_GET_NAME(vic_cache));
+    }
 
     /* Init L2 cache. */
     if (cache_util_is_l2_present()) {
@@ -169,10 +133,27 @@ cache_init(cache_generic_t *l1_cache, cache_generic_t *l2_cache,
         l2_cache->victim_size = 0;      /* No victim cache for L2 */
         l2_cache->repl_plcy = CACHE_REPL_PLCY_LRU;
         l2_cache->write_plcy = CACHE_WRITE_PLCY_WBWA;
-        l2_cache->next_cache = NULL;
-        l2_cache->prev_cache = l1_cache;
         l2_cache->stats.cache = l2_cache;
         dprint_info("%s init successful\n", CACHE_GET_NAME(l2_cache));
+    }
+
+    /* Set the previous and next caches. */
+    if (cache_util_is_victim_present()) {
+        l1_cache->prev_cache = NULL;
+        l1_cache->next_cache = vic_cache;
+        vic_cache->prev_cache = l1_cache;
+        vic_cache->next_cache = NULL;
+
+        if (cache_util_is_l2_present()) {
+            vic_cache->next_cache = l2_cache;
+            l2_cache->prev_cache = vic_cache;
+            l2_cache->next_cache = NULL;
+        }
+    } else if (cache_util_is_l2_present()) {
+        l1_cache->prev_cache = NULL;
+        l1_cache->next_cache = l2_cache;
+        l2_cache->prev_cache = l1_cache;
+        l2_cache->next_cache = NULL;
     }
 
 exit:
@@ -281,6 +262,8 @@ cache_tagstore_init(cache_generic_t *cache, cache_tagstore_t *tagstore)
     dprint_info("printing ts data for %s\n", CACHE_GET_NAME(cache));
     cache_print_tagstore(cache);
 #endif /* DBG_ON */
+
+    dprint_info("%s, tagstore init successful\n", CACHE_GET_NAME(cache));
 
 exit:
     return;
@@ -810,6 +793,39 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
     else
         cache->stats.num_writes += 1;
 
+    /*
+     * Notes
+     * =====
+     *  * Victim cache will only contain entries that were missed in
+     *    L1. There can be no entires in victim cache that weren't missed
+     *    by L1 at any given time.
+     *
+     * Possible Operations
+     * ===================
+     * a.) L1 hit:
+     *      * Update counters and fetch next mref.
+     *
+     * b.) L1 miss:
+     *      * If there are invalid blocks in L1, take an invalid block and
+     *        fetch the data directly from next memory level. VC is not
+     *        involved in this case.
+     *      * If there are no invalid blocks, check in VC:
+     *          - If VC hit, swap the required tag (which is present in VC now)
+     *            with an LRU tag from L1. Carry forward the Dbit in both
+     *            directions.
+     *          - If VC miss, evict the LRU block in L1 and place it in VC with
+     *            Dbit info. If required, allocate block in VC by writing the
+     *            LRU block to next level, if the LRU block is dirty.
+     *
+     *  c.) L2 miss:
+     *      * All requests to L2 should either come from VC (VC miss or VC LRU
+     *        evict) or from L1 during cache init load.
+     *      * If L2 hit, update the counters and return to previous level.
+     *      * If L2 miss, get a block ID (invalid blocks or LRU evict block),
+     *        read the data from memory into the newly created block, update
+     *        the counters and return to previous level.
+     */
+
     if (CACHE_RV_ERR != (block_id = cache_does_tag_match(tagstore, &line))) {
         /* 
          * Cache hit!
@@ -838,6 +854,8 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
              }
         }
     } else {
+        cache_generic_t *next_cache = NULL;
+
         /* Cache miss! 
          * Well, life is not always so good..
          *
@@ -858,19 +876,26 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
         dprint_dbg("MISS %s, TAG %x\n", CACHE_GET_NAME(cache), line.tag);
         dprint_info("cache miss for cache %s, tag 0x%x @ index %u\n",
                 CACHE_GET_NAME(cache), line.tag, line.index);
+        next_cache = cache->next_cache;
 
         /* 
          * Find a block to place the to-be-fetcheed data. Go for block eviction
          * if no free blocks are available.
          */
         block_id = cache_get_first_invalid_block(tagstore, &line);
-        if (CACHE_RV_ERR == block_id)
+        if (CACHE_RV_ERR != block_id) {
+            if ((CACHE_IS_L1(cache)) && (cache_util_is_l2_present()))
+                next_cache = cache_util_get_l2();
+            else
+                next_cache = NULL;
+        } else if (CACHE_RV_ERR == block_id) {
             block_id = cache_evict_tag(cache, mref, &line);
+        }
         dprint_info("cache %s, index %u, block %d selected for tag 0x%x\n",
                 CACHE_GET_NAME(cache), line.index, block_id, line.tag);
 
         /* Check next level cache, if available. */ 
-        if (cache->next_cache) {
+        if (next_cache) {
             mem_ref_t       read_ref;
 
             /* 
@@ -882,8 +907,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
             read_ref.ref_type = MEM_REF_TYPE_READ;
             
             dprint_dbg("READ FROM %s %x\n", 
-                    CACHE_GET_NAME(cache->next_cache), read_ref.ref_addr);
-            cache_evict_and_add_tag(cache->next_cache, &read_ref);
+                    CACHE_GET_NAME(next_cache), read_ref.ref_addr);
+
+            cache_evict_and_add_tag(next_cache, &read_ref);
 
             tags[block_id] = line.tag;
             cache->stats.num_blk_mem_traffic += 1;
@@ -1002,10 +1028,12 @@ main(int argc, char **argv)
      * Parse arguments and populate the data structure with 
      * cache attributes. 
      */
-    cache_init(&g_l1_cache, &g_l2_cache, argc, argv);
+    cache_init(&g_l1_cache, &g_vic_cache, &g_l2_cache, argc, argv);
 
     /* Initialize a tagstore for L1 & L2 caches. */
     cache_tagstore_init(&g_l1_cache, &g_l1_cache_ts);
+    if (cache_util_is_victim_present())
+        cache_tagstore_init(&g_vic_cache, &g_vic_cache_ts);
     if (cache_util_is_l2_present())
         cache_tagstore_init(&g_l2_cache, &g_l2_cache_ts);
 
@@ -1024,7 +1052,6 @@ main(int argc, char **argv)
     while (fscanf(trace_fptr, "%c %x%c", 
                 &(mem_ref.ref_type), &(mem_ref.ref_addr), &newline) != EOF) {
         /* All requests start at L1 cache. */
-        //cache_set_current_cache(&g_l1_cache, &g_l1_cache_ts);
         g_addr_count += 1;
         dprint_dbg("\n%u. Address %x %s\n", g_addr_count, mem_ref.ref_addr,
                 CACHE_GET_REF_TYPE_STR((&mem_ref)));
@@ -1045,14 +1072,21 @@ main(int argc, char **argv)
     /* Dump the cache simulator configuration, cache state and statistics. */
     dprint_dbg("\n");
     cache_print_sim_config(&g_l1_cache);
+
     cache_print_cache_data(&g_l1_cache);
+    if (cache_util_is_victim_present())
+        cache_print_cache_data(&g_vic_cache);
     if (cache_util_is_l2_present())
         cache_print_cache_data(&g_l2_cache);
+
     cache_print_sim_stats(&g_l1_cache);
 
+    /* Cleanup and exit normally. */
     if (trace_fptr) 
         fclose(trace_fptr);
 
+    if (cache_util_is_victim_present())
+        cache_cleanup(&g_vic_cache);
     if (cache_util_is_l2_present())
         cache_cleanup(&g_l2_cache);
     cache_cleanup(&g_l1_cache);
@@ -1066,6 +1100,8 @@ error_exit:
     if (trace_fptr)
         fclose(trace_fptr);
 
+    if (cache_util_is_victim_present())
+        cache_cleanup(&g_vic_cache);
     if (cache_util_is_l2_present())
         cache_cleanup(&g_l2_cache);
     cache_cleanup(&g_l1_cache);

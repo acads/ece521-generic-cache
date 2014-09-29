@@ -21,6 +21,9 @@
 /* Util macros */
 #define IS_MEM_REF_READ(REF)    (MEM_REF_TYPE_READ == REF->ref_type)
 #define IS_MEM_REF_WRITE(REF)   (MEM_REF_TYPE_WRITE == REF->ref_type)
+#define CACHE_IS_L1(CACHE)      (CACHE_LEVEL_1 == CACHE->level)
+#define CACHE_IS_VC(CACHE)      (CACHE_LEVEL_L1_VICTIM == CACHE->level)
+#define CACHE_IS_L2(CACHE)      (CACHE_LEVEL_2 == CACHE->level)
 
 #define CACHE_GET_REPLACEMENT_POLICY(CACHE)     (CACHE->repl_plcy)
 #define CACHE_GET_WRITE_POLICY(CACHE)           (CACHE->write_plcy)
@@ -74,6 +77,12 @@ inline boolean
 cache_util_is_l2_present(void);
 inline boolean
 cache_util_is_victim_present(void);
+inline cache_generic_t *
+cache_util_get_l1(void);
+inline cache_generic_t *
+cache_util_get_vc(void);
+inline cache_generic_t *
+cache_util_get_l2(void);
 int8_t
 cache_util_get_lru_block_id(cache_tagstore_t *tagstore, cache_line_t *line);
 boolean

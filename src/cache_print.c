@@ -178,8 +178,21 @@ cache_print_cache_data(cache_generic_t *cache)
     num_blocks_per_set = tagstore->num_blocks_per_set;
     tag_ages = (uint64_t *) calloc(1, (num_blocks_per_set * sizeof(uint64_t)));
 
-    title = (strncmp(cache->name, g_l1_name, strlen(g_l1_name)) ?
-            "===== L2 contents =====" : "===== L1 contents =====");
+    switch (cache->level) {
+        case CACHE_LEVEL_1:
+            title = "===== L1 contents =====";
+            break;
+
+        case CACHE_LEVEL_L1_VICTIM:
+            title = "===== Victim Cache contents =====";
+            break;
+
+        case CACHE_LEVEL_2:
+            title = "===== L2 contents =====";
+            break;
+        default:
+            cache_assert(0);
+    }
 
     dprint("%s\n", title);
     for (index = 0; index < num_sets; ++index) {
