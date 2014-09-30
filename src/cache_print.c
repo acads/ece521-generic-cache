@@ -73,8 +73,11 @@ cache_print_sim_stats(cache_generic_t *cache)
     double          total_access_time = 0.0;
     double          b_512kb = (512 * 1024);
     uint32_t        total_traffic = 0;
+    uint32_t        vc_write_backs = 0;
     cache_stats_t   *stats = NULL;
+    cache_stats_t   *vc_stats = NULL;
     cache_stats_t   l2_stats;
+    cache_generic_t *vc = NULL;
 
     memset(&l2_stats, 0, sizeof(l2_stats));
     stats = &(cache->stats);
@@ -125,6 +128,13 @@ cache_print_sim_stats(cache_generic_t *cache)
         avg_access_time = 0.0; //FIXME for victim cache
     }
 
+    if (cache_util_get_vc()) {
+        vc = cache_util_get_vc();
+        vc_stats = &vc->stats;
+
+        vc_write_backs = vc_stats->num_write_backs;
+    }
+
     dprint("====== Simulation results (raw) ======\n");
     dprint("a. number of L1 reads: %20u\n", stats->num_reads);
     dprint("b. number of L1 read misses: %14u\n", stats->num_read_misses);
@@ -132,7 +142,7 @@ cache_print_sim_stats(cache_generic_t *cache)
     dprint("d. number of L1 write misses: %13u\n", stats->num_write_misses);
     dprint("e. L1 miss rate: %26.4f\n", l1_miss_rate);
     dprint("f. number of swaps: %23u\n", 0); //FIXME
-    dprint("g. number of victim cache writeback: %6u\n", 0); //FIXME
+    dprint("g. number of victim cache writeback: %6u\n", vc_write_backs); //FIXME
     dprint("h. number of L2 reads: %20u\n", l2_stats.num_reads);
     dprint("i. number of L2 read misses: %14u\n", l2_stats.num_read_misses);
     dprint("j. number of L2 writes: %19u\n", l2_stats.num_writes);
@@ -420,7 +430,7 @@ cache_print_tags(cache_generic_t *cache, cache_line_t *line)
     tags = &tagstore->tags[tag_index];
     tag_data = &tagstore->tag_data[tag_index];
 
-    dprint("%6u %s [%2u, %6x]: ",
+    dprint("%6u %s [%2u, %7x]: ",
             g_addr_count, CACHE_GET_NAME(cache), line->index, line->tag);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         dirty_str = ((tag_data[block_id].dirty) ? "D" : "");

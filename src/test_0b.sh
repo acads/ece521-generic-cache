@@ -69,14 +69,14 @@ function run6()
 function run7()
 {
     run_start
-    echo "time ./sim_cache 16 1024 8 0 0 go_trace.txt > b7"
-    time ./sim_cache 16 1024 8 0 0 0 go_trace.txt > b7
+    echo "time ./sim_cache 16 1024 8 0 8192 4 go_trace.txt > b7"
+    time ./sim_cache 16 1024 8 0 8192 4 go_trace.txt > b7
     run_end
 
     echo " "
 
     diff_start
-    diff -iw b7 old_b7 
+    diff -iw b7 ../docs/Validation7_PartB.txt
     diff_end
 }
 
@@ -84,14 +84,14 @@ function run7()
 function run8()
 {
     run_start
-    echo "time ./sim_cache 32 1024 8 0 0 0 perl_trace.txt > b8"
-    time ./sim_cache 32 1024 8 0 0 0 perl_trace.txt > b8
+    echo "time ./sim_cache 32 1024 8 256 0 0 perl_trace.txt > b8"
+    time ./sim_cache 32 1024 8 256 0 0 perl_trace.txt > b8
     run_end
 
     echo " "
 
     diff_start
-    diff -iw b8 old_b8
+    diff -iw b8 ../docs/Validation8_PartB.txt
     diff_end
 }
 
@@ -99,14 +99,14 @@ function run8()
 function run9()
 {
     run_start
-    echo "time ./sim_cache 128 1024 2 0 0 0 gcc_trace.txt > b9"
-    time ./sim_cache 128 1024 2 0 0 0 gcc_trace.txt > b9
+    echo "time ./sim_cache 128 1024 2 1024 4096 4 gcc_trace.txt > b9"
+    time ./sim_cache 128 1024 2 1024 4096 4 gcc_trace.txt > b9
     run_end
 
     echo " "
 
     diff_start
-    diff -iw b9 old_b9
+    diff -iw b9 ../docs/Validation9_PartB.txt
     diff_end
 }
 
@@ -114,14 +114,14 @@ function run9()
 function run10()
 {
     run_start
-    echo "time ./sim_cache 64 8192 2 0 0 0 perl_trace.txt > b10"
-    time ./sim_cache 64 8192 2 0 0 0 perl_trace.txt > b10
+    echo "time ./sim_cache 64 8192 2 1024 16384 4 perl_trace.txt > b10"
+    time ./sim_cache 64 8192 2 1024 16384 4 perl_trace.txt > b10
     run_end
 
     echo " "
 
     diff_start
-    diff -iw b10 old_b10
+    diff -iw b10 ../docs/Validation10_PartB.txt
     diff_end
 }
 
