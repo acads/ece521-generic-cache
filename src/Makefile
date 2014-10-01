@@ -35,8 +35,8 @@ DEBUG = -g -pg -D DBG_ON
 # Compiler options
 CC = gcc
 OPTIMIZER = -O0
-CFLAGS = -Wall -c $(DEBUG) $(OPTIMIZER) $(INCLS)
-LFLAGS = -Wall $(DEBUG) $(OPTIMIZER) $(INCLS)
+CFLAGS = -Wall -c $(DEBUG) $(OPTIMIZER) $(INCLS) -g
+LFLAGS = -Wall $(DEBUG) $(OPTIMIZER) $(INCLS) -g
 
  
 # Make directives
