@@ -33,10 +33,12 @@
 
 #if 0
 #define dprint(str, ...)  
-#define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
-#endif
 #define dprint_dbg(str, ...)
+#define dprint_dp(str, ...)  
+#endif
 #define dprint(str, ...)     printf(str, ##__VA_ARGS__)
+#define dprint_dbg(str, ...) printf(str, ##__VA_ARGS__)
+#define dprint_dp(str, ...) printf(str, ##__VA_ARGS__)
 
 #ifdef DBG_ON
 #define dprint_info(str, ...)               \

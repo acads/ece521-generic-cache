@@ -417,6 +417,7 @@ void
 cache_print_tags(cache_generic_t *cache, cache_line_t *line)
 {
     char                *dirty_str = NULL;
+    int32_t             lru_id = -1;
     uint32_t            *tags = NULL;
     uint32_t            num_blocks = 0;
     uint32_t            block_id = 0;
@@ -429,9 +430,15 @@ cache_print_tags(cache_generic_t *cache, cache_line_t *line)
     tag_index = (line->index * num_blocks);
     tags = &tagstore->tags[tag_index];
     tag_data = &tagstore->tag_data[tag_index];
+    lru_id = cache_util_get_lru_block_id(tagstore, line);
 
+    dprint("%6u %s [%2u, %d, %7x]: ",
+            g_addr_count, CACHE_GET_NAME(cache), line->index, lru_id, line->tag);
+#if 0
+    // lol
     dprint("%6u %s [%2u, %7x]: ",
             g_addr_count, CACHE_GET_NAME(cache), line->index, line->tag);
+#endif
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         dirty_str = ((tag_data[block_id].dirty) ? "D" : "");
         if (tags[block_id])
