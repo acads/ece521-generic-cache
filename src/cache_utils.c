@@ -418,8 +418,8 @@ cache_util_decode_mem_addr(cache_tagstore_t *tagstore, uint32_t addr,
     line->index = ((addr & index_mask) >> tagstore->num_offset_bits);
     line->offset = (addr & offset_mask);
 
-    dprint_info("addr 0x%x, tag 0x%x, index %u, offset %u\n", 
-            addr, line->tag, line->index, line->offset);
+    //dprint_info("addr 0x%x, tag 0x%x, index %u, offset %u\n", 
+      //      addr, line->tag, line->index, line->offset);
 
 exit:
     return;

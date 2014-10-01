@@ -392,8 +392,9 @@ cache_get_lru_block(cache_tagstore_t *tagstore, mem_ref_t *mref,
     cache = (cache_generic_t *) tagstore->cache;
     printf("%s, LRU index %u\n", CACHE_GET_NAME(cache), line->index);
     for (block_id = 0; block_id < num_blocks; ++block_id) {
-        printf("    block %u, valid %u, age %lu\n",
-                block_id, tag_data[block_id].valid, tag_data[block_id].age);
+        printf("    B %u, V %u, D %u, A %lu\n",
+                block_id, tag_data[block_id].valid, 
+                tag_data[block_id].dirty, tag_data[block_id].age);
     }
  
     printf("%s, min_block %u, min_age %lu\n", CACHE_GET_NAME(cache), 
@@ -606,9 +607,9 @@ cache_write_to_victim(cache_generic_t *vc, mem_ref_t *write_ref, boolean dirty)
             CACHE_GET_NAME(vc), line.tag, line.index, block_id, dirty);
 
 exit:
-//#ifdef DBG_ON
+#ifdef DBG_ON
     cache_print_tags(vc, &line);
-//#endif /* DBG_ON */
+#endif /* DBG_ON */
     return;
 }
 
@@ -671,10 +672,10 @@ cache_handle_dirty_tag_evicts(cache_generic_t *cache, mem_ref_t *mem_ref,
         write_ref.ref_type = MEM_REF_TYPE_WRITE;
 
         if (CACHE_IS_VC(cache->next_cache)) {
-            boolean is_dirty = FALSE;
+            boolean dirty = FALSE;
 
-            is_dirty = tag_data[block_id].dirty;
-            cache_write_to_victim(cache->next_cache, &write_ref, is_dirty);
+            dirty = tag_data[block_id].dirty;
+            cache_write_to_victim(cache->next_cache, &write_ref, dirty);
             tag_data[block_id].dirty = 0;
             goto exit;
         }
@@ -770,8 +771,8 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
             cache_assert(0);
             goto error_exit;
     }
-    dprint_dp("LRU EVICT FROM %s, TAG %x, INDEX %u, BLOCK %d, DIRTY %u\n",
-        CACHE_GET_NAME(cache), line->tag, line->index, block_id, 
+    dprint_dp("LRU EVICT FROM %s, INDEX %u, BLOCK %d, DIRTY %u\n",
+        CACHE_GET_NAME(cache), line->index, block_id, 
         cache_util_is_block_dirty(tagstore, line, block_id));
 
     dprint_info("LRU evict: %s, index %u , block %d, dirty %u\n", 
@@ -783,7 +784,7 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
      * Force write those evictions to victim cache here,
      */
     if (CACHE_IS_L1(cache) && (cache_util_is_victim_present())) {
-        dprint_dp("%s, index %u, block %u, writing non-dirty block "   \
+        dprint_dp("%s, index %u, block %u, force write "                \
             "from %s to %s due to eviction\n",
             CACHE_GET_NAME(cache), line->index, block_id,
             CACHE_GET_NAME(cache), CACHE_GET_NAME(cache->next_cache));
@@ -963,14 +964,12 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
          * Find a block to place the to-be-fetcheed data. Go for block eviction
          * if no free blocks are available.
          */
+#if 0 //lol
         block_id = cache_get_first_invalid_block(tagstore, &line);
         if (CACHE_RV_ERR == block_id)
             block_id = cache_evict_tag(cache, mref, &line);
-#if 0
-        lol
-        else if (CACHE_IS_L1(cache))
-            dprint_dbg("MISS VICTIM CACHE\n") 
 #endif
+
         dprint_info("cache %s, index %u, block %d selected for tag 0x%x\n",
                 CACHE_GET_NAME(cache), line.index, block_id, line.tag);
 
@@ -993,14 +992,19 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                 vc_block_id = cache_does_tag_match(vc_ts, &vc_line);
                 if (CACHE_RV_ERR != vc_block_id) {
                     uint8_t             tmp_l1_dirty = 0;
-                    uint32_t            tmp_l1_tag = 0;
                     uint32_t            vc_tag_index = 0;
                     uint32_t            *vc_tags;
                     mem_ref_t           l1_old_ref;
+                    cache_line_t        l1_old_line;
                     cache_line_t        vc_tmp_line;
                     cache_tag_data_t    *vc_tag_data;
 
                     dprint_dbg("HIT %s, SWAP\n", CACHE_GET_NAME(vc));
+
+        block_id = cache_get_first_invalid_block(tagstore, &line);
+        if (CACHE_RV_ERR == block_id)
+            block_id = cache_util_get_lru_block_id(cache->tagstore, &line);
+            //block_id = cache_evict_tag(cache, mref, &line);
 
                     vc_tag_index = (vc_line.index * vc_ts->num_blocks_per_set);
                     vc_tags = &vc_ts->tags[vc_tag_index];
@@ -1010,26 +1014,36 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                      * Convert the current L1 tag (to be swapped) to 
                      * VC's line. 
                      */
-                    memset(&l1_old_ref, 0, sizeof(l1_old_ref));
-                    cache_util_encode_mem_addr(tagstore, &line, &l1_old_ref);
+                    memset(&l1_old_line, 0, sizeof(l1_old_line));
+                    l1_old_line.tag = tags[block_id];
+                    l1_old_line.index = line.index;
+                    cache_util_encode_mem_addr(tagstore, 
+                            &l1_old_line, &l1_old_ref);
                     cache_util_decode_mem_addr(vc_ts, 
                             l1_old_ref.ref_addr, &vc_tmp_line);
+
+                    dprint_info("victim cache hit.. swap\n");
+                    dprint_info("%s, to swap: T %x, I %u, B %d, D %u\n",
+                        CACHE_GET_NAME(cache), tags[block_id], line.index,
+                        block_id, tag_data[block_id].dirty);
+                    dprint_info("%s, to swap: T %x, I %u, B %d, D %u\n",
+                        CACHE_GET_NAME(vc), vc_tags[vc_block_id], 
+                        vc_tmp_line.index, vc_block_id, 
+                        vc_tag_data[vc_block_id].dirty);
+
                     dprint_dp("addr %x, l1 tag %x, vc tag %x\n",
-                            l1_old_ref.ref_addr, line.tag, vc_tmp_line.tag);
+                        l1_old_ref.ref_addr, l1_old_line.tag, vc_tmp_line.tag);
 
                     /* Swap tag data and dirty bits. */
-                    tmp_l1_tag = tags[block_id];
                     tags[block_id] = line.tag;
                     vc_tags[vc_block_id] = vc_tmp_line.tag;
-#if 0
-                    tags[block_id] = vc_tags[vc_block_id];
-                    vc_tags[block_id] = tmp_l1_tag;
-#endif
                     
                     tmp_l1_dirty = tag_data[block_id].dirty;
                     tag_data[block_id].dirty = 
                         vc_tag_data[vc_block_id].dirty;
                     vc_tag_data[vc_block_id].dirty = tmp_l1_dirty;
+                    if (!read_flag)
+                        tag_data[block_id].dirty = 1;
         
                     curr_age = util_get_curr_time(); 
                     tag_data[block_id].valid = 1;
@@ -1037,18 +1051,19 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                     vc_tag_data[vc_block_id].valid = 1;
                     vc_tag_data[vc_block_id].age = curr_age;
 
-#if 0
-                    if ((!read_flag) && !tag_data[block_id].dirty)
-                            (!cache_util_is_block_dirty(tagstore, 
-                                                        &line, block_id)))
-#endif
-                    if (!read_flag)
-                        tag_data[block_id].dirty = 1;
+#ifdef DBG_ON
+                    dprint_info("print cache conntents start\n");
+                    cache_print_tags(cache, &line);
+                    cache_print_tags(vc, &vc_tmp_line);
+                    dprint_info("print cache conntents end\n");
+#endif /* DBG_ON */
                     goto exit;
 
                 } else {
                     /* VC miss. Set next cache to L2, if available. */
                     dprint_dbg("MISS %s\n", CACHE_GET_NAME(vc));
+                    dprint_dp("MISS %s, TAG %x\n", 
+                            CACHE_GET_NAME(vc), vc_line.tag);
                     next_cache = (cache_util_is_l2_present()) ? 
                         cache_util_get_l2() : NULL;
                 }
@@ -1063,6 +1078,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
         if (next_cache) {
             mem_ref_t       read_ref;
 
+        block_id = cache_get_first_invalid_block(tagstore, &line);
+        if (CACHE_RV_ERR == block_id)
+            block_id = cache_evict_tag(cache, mref, &line);
             /* 
              * For cache misses, issues a read reference for that address
              * to the next cache level.
@@ -1095,6 +1113,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
             dprint_info("%s, tag 0x%x added to index %u, block %u\n", 
                     CACHE_GET_NAME(cache), line.tag, line.index, block_id);
         } else {
+        block_id = cache_get_first_invalid_block(tagstore, &line);
+        if (CACHE_RV_ERR == block_id)
+            block_id = cache_evict_tag(cache, mref, &line);
             /*
              * We are at the last cache and currently handling a miss. 
              * Read from memory and place it the previouly found block. 
@@ -1124,9 +1145,9 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
     }   /* End of cache miss processing */
 
 exit:
-//#ifdef DBG_ON
+#ifdef DBG_ON
     cache_print_tags(cache, &line);
-//#endif /* DBG_ON */
+#endif /* DBG_ON */
     return;
 }
 
