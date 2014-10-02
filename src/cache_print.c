@@ -185,14 +185,24 @@ cache_print_sim_stats(cache_generic_t *cache)
     /* Victim cache data. */
     dprint("f. number of swaps: %23u\n", vc_num_swaps);
     dprint("g. number of victim cache writeback: %6u\n", 
-            vc_num_write_backs); //FIXME
+            vc_num_write_backs);
 
     /* L2 cache data. */
     dprint("h. number of L2 reads: %20u\n", l2_num_reads);
     dprint("i. number of L2 read misses: %14u\n", l2_num_read_misses);
     dprint("j. number of L2 writes: %19u\n", l2_num_writes);
     dprint("k. number of L2 write misses: %13u\n", l2_num_write_misses);
-    dprint("l. L2 miss rate: %26.4f\n", l2_miss_rate);
+
+    /*
+     * An ugly hack to match the weird format given by the TAs.
+     * When L2 isn't present, L2 miss rate (which is a float), is printed
+     * as just 0. No decimals!
+     * */
+    if (l2_present)
+        dprint("l. L2 miss rate: %26.4f\n", l2_miss_rate);
+    else
+        dprint("l. L2 miss rate: %26u\n", 0);
+
     dprint("m. number of L2 writebacks: %15u\n", l2_num_write_backs);
 
     dprint("n. total memory traffic: %18u\n", total_traffic);
@@ -479,12 +489,9 @@ cache_print_tags(cache_generic_t *cache, cache_line_t *line)
     lru_id = cache_util_get_lru_block_id(tagstore, line);
 
     dprint("%6u %s [%2u, %d, %7x]: ",
-            g_addr_count, CACHE_GET_NAME(cache), line->index, lru_id, line->tag);
-#if 0
-    // lol
-    dprint("%6u %s [%2u, %7x]: ",
-            g_addr_count, CACHE_GET_NAME(cache), line->index, line->tag);
-#endif
+            g_addr_count, CACHE_GET_NAME(cache),
+            line->index, lru_id, line->tag);
+
     for (block_id = 0; block_id < num_blocks; ++block_id) {
         dirty_str = ((tag_data[block_id].dirty) ? "D" : "");
         if (tags[block_id])
