@@ -33,8 +33,9 @@ cache_print_sim_config(cache_generic_t *cache)
     uint32_t l2_size = 0;
 
     if (cache_util_is_l2_present()) {
-        l2_size = cache->next_cache->size;
-        l2_assoc = cache->next_cache->set_assoc;
+        cache_generic_t *l2 = cache_util_get_l2();
+        l2_size = l2->size;
+        l2_assoc = l2->set_assoc;
     }
 
     dprint("===== Simulator configuration =====\n");
@@ -65,22 +66,48 @@ void
 cache_print_sim_stats(cache_generic_t *cache)
 {
     double          l1_miss_rate = 0.0;
-    double          l2_miss_rate = 0.0;
     double          l1_hit_time = 0.0;
+    cache_stats_t   *l1_stats = NULL;
+
+    uint32_t        vc_num_swaps = 0;
+    uint32_t        vc_num_write_backs = 0;
+    boolean         vc_present = FALSE;
+    cache_stats_t   *vc_stats = NULL;
+    cache_generic_t *vc = NULL;
+
+    uint32_t        l2_num_reads = 0;
+    uint32_t        l2_num_writes = 0;
+    uint32_t        l2_num_misses = 0;
+    uint32_t        l2_num_read_misses = 0;
+    uint32_t        l2_num_write_misses = 0;
+    uint32_t        l2_num_write_backs = 0;
     double          l2_hit_time = 0.0;
+    double          l2_miss_rate = 0.0;
+    double          l2_miss_penalty = 0.0;
+    boolean         l2_present = FALSE;
+    cache_stats_t   *l2_stats;
+    cache_generic_t *l2 = NULL;
+
     double          miss_penalty = 0.0;
     double          avg_access_time = 0.0;
     double          total_access_time = 0.0;
     double          b_512kb = (512 * 1024);
     uint32_t        total_traffic = 0;
-    uint32_t        vc_write_backs = 0;
-    cache_stats_t   *stats = NULL;
-    cache_stats_t   *vc_stats = NULL;
-    cache_stats_t   l2_stats;
-    cache_generic_t *vc = NULL;
 
-    memset(&l2_stats, 0, sizeof(l2_stats));
-    stats = &(cache->stats);
+    l1_stats = &(cache->stats);
+
+    if (cache_util_is_victim_present()) {
+        vc_present = TRUE;
+        vc = cache_util_get_vc();
+        vc_stats = &vc->stats;
+    }
+
+    if (cache_util_is_l2_present()) {
+        l2_present = TRUE;
+        l2 = cache_util_get_l2();
+        l2_stats = &l2->stats;
+    }
+
 
     /* 
      * Calculation of avg. access time (from project web-page):
@@ -95,60 +122,79 @@ cache_print_sim_stats(cache_generic_t *cache)
      * 4.  Area Budget = 512kB for both L1 and L2 Caches
      * 5. Average access time =  HTL1 + (MRL1 *(HTL2+MRL2*Miss PenaltyL2))
      */
+
+    if (l2_present) {
+        l2_num_reads = l2_stats->num_reads;
+        l2_num_read_misses = l2_stats->num_read_misses;
+        l2_num_writes = l2_stats->num_writes;
+        l2_num_write_misses = l2_stats->num_write_misses;
+        l2_num_misses = l2_stats->num_read_misses + l2_stats->num_write_misses;
+        l2_num_write_backs = l2_stats->num_write_backs;
+        l2_miss_penalty = (20 + (0.5 * (((double) l2->blk_size) / 16)));
+        l2_miss_rate =
+            ((double) (l2_stats->num_read_misses) /
+                (double) (l2_stats->num_reads));
+        l2_hit_time = (2.5 + (2.5 * (((double) l2->size) / b_512kb)) +
+                (0.025 * (((double) l2->blk_size) / 16)) +
+                (0.025 * l2->set_assoc));
+    } 
+
+    if (vc_present) {
+        vc_num_swaps = vc_stats->num_swaps;
+        vc_num_write_backs = vc_stats->num_write_backs;
+    }
+
     l1_miss_rate =
-       ((double) (stats->num_read_misses + stats->num_write_misses) /
-        (double) (stats->num_reads + stats->num_writes));
+       ((double) (l1_stats->num_read_misses + l1_stats->num_write_misses) /
+        (double) (l1_stats->num_reads + l1_stats->num_writes));
     l1_hit_time = (0.25 + (2.5 * (((double) cache->size) / b_512kb)) + (0.025 *
             (((double) cache->blk_size) / 16)) + (0.025 * cache->set_assoc));
     miss_penalty = (20 + (0.5 * (((double) cache->blk_size) / 16)));
     total_access_time =
-        (((stats->num_reads + stats->num_writes) * l1_hit_time) +
-         ((stats->num_read_misses + stats->num_write_misses) * miss_penalty));
+        (((l1_stats->num_reads + l1_stats->num_writes) * l1_hit_time) +
+         ((l2_num_misses) * miss_penalty));
 
-    if (cache_util_is_l2_present()) {
-        double              l2_miss_penalty = 0.0;
-        cache_generic_t     *l2_cache = cache->next_cache;
-
-        memcpy(&l2_stats, &(l2_cache->stats), sizeof(l2_stats));
-
-        l2_miss_penalty = (20 + (0.5 * (((double) l2_cache->blk_size) / 16)));
-        l2_miss_rate =
-            ((double) (l2_stats.num_read_misses) /
-                (double) (l2_stats.num_reads));
-        l2_hit_time = (2.5 + (2.5 * (((double) l2_cache->size) / b_512kb)) +
-                (0.025 * (((double) l2_cache->blk_size) / 16)) +
-                (0.025 * l2_cache->set_assoc));
-        total_traffic = (l2_stats.num_read_misses + l2_stats.num_write_misses +
-            l2_stats.num_write_backs);
+    if (l2_present) {
+        total_traffic = (l2_stats->num_read_misses + 
+                         l2_stats->num_write_misses +
+                         l2_stats->num_write_backs);
         avg_access_time = (l1_hit_time +
-                (l1_miss_rate *
-                 (l2_hit_time + l2_miss_rate * l2_miss_penalty)));
-    } else {
-        total_traffic = 0; //FIXME for victim cache
-        avg_access_time = 0.0; //FIXME for victim cache
+            (l1_miss_rate * (l2_hit_time + l2_miss_rate * l2_miss_penalty)));
     }
-
-    if (cache_util_get_vc()) {
-        vc = cache_util_get_vc();
-        vc_stats = &vc->stats;
-
-        vc_write_backs = vc_stats->num_write_backs;
+    else if (vc_present) {
+        total_traffic = (l1_stats->num_read_misses +
+                         l1_stats->num_write_misses +
+                         vc_stats->num_write_backs);
+        avg_access_time = (l1_hit_time +
+            (l1_miss_rate * (miss_penalty)));
+    } else {
+        total_traffic = l1_stats->num_blk_mem_traffic; 
+        avg_access_time = (l1_hit_time +
+            (l1_miss_rate * (miss_penalty)));
     }
 
     dprint("====== Simulation results (raw) ======\n");
-    dprint("a. number of L1 reads: %20u\n", stats->num_reads);
-    dprint("b. number of L1 read misses: %14u\n", stats->num_read_misses);
-    dprint("c. number of L1 writes: %19u\n", stats->num_writes);
-    dprint("d. number of L1 write misses: %13u\n", stats->num_write_misses);
+
+    /* L1 cache data. */
+    dprint("a. number of L1 reads: %20u\n", l1_stats->num_reads);
+    dprint("b. number of L1 read misses: %14u\n", l1_stats->num_read_misses);
+    dprint("c. number of L1 writes: %19u\n", l1_stats->num_writes);
+    dprint("d. number of L1 write misses: %13u\n", l1_stats->num_write_misses);
     dprint("e. L1 miss rate: %26.4f\n", l1_miss_rate);
-    dprint("f. number of swaps: %23u\n", 0); //FIXME
-    dprint("g. number of victim cache writeback: %6u\n", vc_write_backs); //FIXME
-    dprint("h. number of L2 reads: %20u\n", l2_stats.num_reads);
-    dprint("i. number of L2 read misses: %14u\n", l2_stats.num_read_misses);
-    dprint("j. number of L2 writes: %19u\n", l2_stats.num_writes);
-    dprint("k. number of L2 write misses: %13u\n", l2_stats.num_write_misses);
+
+    /* Victim cache data. */
+    dprint("f. number of swaps: %23u\n", vc_num_swaps);
+    dprint("g. number of victim cache writeback: %6u\n", 
+            vc_num_write_backs); //FIXME
+
+    /* L2 cache data. */
+    dprint("h. number of L2 reads: %20u\n", l2_num_reads);
+    dprint("i. number of L2 read misses: %14u\n", l2_num_read_misses);
+    dprint("j. number of L2 writes: %19u\n", l2_num_writes);
+    dprint("k. number of L2 write misses: %13u\n", l2_num_write_misses);
     dprint("l. L2 miss rate: %26.4f\n", l2_miss_rate);
-    dprint("m. number of L2 writebacks: %15u\n", l2_stats.num_write_backs);
+    dprint("m. number of L2 writebacks: %15u\n", l2_num_write_backs);
+
     dprint("n. total memory traffic: %18u\n", total_traffic);
 
     dprint("==== Simulation results (performance) ====\n");

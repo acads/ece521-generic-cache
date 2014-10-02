@@ -34,7 +34,7 @@ uint32_t            g_addr_count;           /* ID for mref from trace file  */
 
 const char          *g_dirty = "D";         /* used to denote dirty blocks  */
 const char          *g_l1_name = "L1";      /* L1 cache name                */
-const char          *g_vic_name = "VICTIM CACHE";     /* victim cache name            */
+const char          *g_vic_name = "VC";     /* victim cache name            */
 const char          *g_l2_name = "L2";      /* L2 cache name                */
 const char          *g_read = "READ";       /* mref READ type string        */
 const char          *g_write = "WRITE";     /* mref WRITE type string       */
@@ -744,7 +744,6 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
                 goto error_exit;
             break;
 
-#if 0
         case CACHE_REPL_PLCY_LFU:
             block_id = cache_get_lfu_block(tagstore, mref, line);
             if (CACHE_RV_ERR == block_id)
@@ -764,7 +763,6 @@ cache_evict_tag(cache_generic_t *cache, mem_ref_t *mref, cache_line_t *line)
                     tagstore->set_ref_count[line->index],
                     tagstore->tag_data[tag_index + block_id].ref_count);
 #endif /* DBG_ON */
-#endif /* if 0 */
             break;
 
         default:
@@ -960,16 +958,6 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                 CACHE_GET_NAME(cache), line.tag, line.index);
         next_cache = cache->next_cache;
 
-        /* 
-         * Find a block to place the to-be-fetcheed data. Go for block eviction
-         * if no free blocks are available.
-         */
-#if 0 //lol
-        block_id = cache_get_first_invalid_block(tagstore, &line);
-        if (CACHE_RV_ERR == block_id)
-            block_id = cache_evict_tag(cache, mref, &line);
-#endif
-
         dprint_info("cache %s, index %u, block %d selected for tag 0x%x\n",
                 CACHE_GET_NAME(cache), line.index, block_id, line.tag);
 
@@ -983,9 +971,11 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                 cache_line_t        vc_line;
                 cache_generic_t     *vc = NULL;
                 cache_tagstore_t    *vc_ts = NULL;
+                cache_stats_t       *vc_stats = NULL;
 
                 vc = cache_util_get_vc(); 
                 vc_ts = vc->tagstore;
+                vc_stats = &vc->stats;
                 memset(&vc_line, 0, sizeof(vc_line));
                 cache_util_decode_mem_addr(vc_ts, mref->ref_addr, &vc_line);
 
@@ -1001,10 +991,15 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
 
                     dprint_dbg("HIT %s, SWAP\n", CACHE_GET_NAME(vc));
 
-        block_id = cache_get_first_invalid_block(tagstore, &line);
-        if (CACHE_RV_ERR == block_id)
-            block_id = cache_util_get_lru_block_id(cache->tagstore, &line);
-            //block_id = cache_evict_tag(cache, mref, &line);
+                    /* 
+                     * Find a block to place the to-be-fetcheed data. Go for 
+                     * LRU block (don't evict, as we are just going to swap it
+                     * with VC), if no free blocks are available.
+                     */
+                    block_id = cache_get_first_invalid_block(tagstore, &line);
+                    if (CACHE_RV_ERR == block_id)
+                        block_id = cache_util_get_lru_block_id(cache->tagstore,
+                                &line);
 
                     vc_tag_index = (vc_line.index * vc_ts->num_blocks_per_set);
                     vc_tags = &vc_ts->tags[vc_tag_index];
@@ -1057,6 +1052,12 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                     cache_print_tags(vc, &vc_tmp_line);
                     dprint_info("print cache conntents end\n");
 #endif /* DBG_ON */
+                    vc_stats->num_swaps += 1;
+                    if (read_flag)
+                        vc_stats->num_read_hits += 1;
+                    else
+                        vc_stats->num_write_hits += 1;
+
                     goto exit;
 
                 } else {
@@ -1066,6 +1067,11 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
                             CACHE_GET_NAME(vc), vc_line.tag);
                     next_cache = (cache_util_is_l2_present()) ? 
                         cache_util_get_l2() : NULL;
+
+                    if (read_flag)
+                        vc_stats->num_read_misses += 1;
+                    else
+                        vc_stats->num_write_misses += 1;
                 }
             } else {
                 /* VC not present. Set next_cache to L2 if available. */
@@ -1077,10 +1083,14 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
         /* Check next level cache, if available. */ 
         if (next_cache) {
             mem_ref_t       read_ref;
+            /*
+             * Find a block to place the to-be-fetcheed data. Go for
+             * block eviction, if no free blocks are available.
+             */
+            block_id = cache_get_first_invalid_block(tagstore, &line);
+            if (CACHE_RV_ERR == block_id)
+                block_id = cache_evict_tag(cache, mref, &line);
 
-        block_id = cache_get_first_invalid_block(tagstore, &line);
-        if (CACHE_RV_ERR == block_id)
-            block_id = cache_evict_tag(cache, mref, &line);
             /* 
              * For cache misses, issues a read reference for that address
              * to the next cache level.
@@ -1113,9 +1123,14 @@ cache_evict_and_add_tag(cache_generic_t *cache, mem_ref_t *mref)
             dprint_info("%s, tag 0x%x added to index %u, block %u\n", 
                     CACHE_GET_NAME(cache), line.tag, line.index, block_id);
         } else {
-        block_id = cache_get_first_invalid_block(tagstore, &line);
-        if (CACHE_RV_ERR == block_id)
-            block_id = cache_evict_tag(cache, mref, &line);
+            /*
+             * Find a block to place the to-be-fetcheed data. Go for
+             * block eviction, if no free blocks are available.
+             */
+            block_id = cache_get_first_invalid_block(tagstore, &line);
+            if (CACHE_RV_ERR == block_id)
+                block_id = cache_evict_tag(cache, mref, &line);
+
             /*
              * We are at the last cache and currently handling a miss. 
              * Read from memory and place it the previouly found block. 
@@ -1245,7 +1260,8 @@ main(int argc, char **argv)
 
         dprint_dbg("\n%u. Address %x %s\n", g_addr_count, mem_ref.ref_addr,
                 CACHE_GET_REF_TYPE_STR((&mem_ref)));
-//#ifdef DBG_ON //lol
+
+#ifdef DBG_ON
         {
             cache_line_t    l1_line;
             cache_line_t    vc_line;
@@ -1258,7 +1274,7 @@ main(int argc, char **argv)
             dprint_dp("ADDR %x, L1 tag %x, VC tag %x\n",
                     mem_ref.ref_addr, l1_line.tag, vc_line.tag);
         }
-//#endif
+#endif /* DBG_ON */
 
         dprint_info("mem_ref %c 0x%x\n", 
                 mem_ref.ref_type, mem_ref.ref_addr);

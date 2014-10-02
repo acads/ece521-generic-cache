@@ -81,6 +81,7 @@ typedef struct cache_tagstore__ {
 
 /* Cache statistics data structure */
 typedef struct cache_stats__ {
+    uint32_t            num_swaps;              /* L1 & VC swaps            */
     uint32_t            num_reads;              /* # of reads               */
     uint32_t            num_writes;             /* # of writes              */
     uint32_t            num_read_hits;          /* # of read hits           */ 
