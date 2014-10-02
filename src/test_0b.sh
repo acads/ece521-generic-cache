@@ -1,5 +1,3 @@
-#!/bin/bash
-
 #
 # ECE 521 - Computer Design Techniques, Fall 2014
 # Project 1B - Generic Cache Implementation
@@ -9,6 +7,8 @@
 # 
 # Author: Aravindhan Dhanasekaran <adhanas@ncsu.edu>
 # 
+
+#!/bin/bash
 
 
 red_bold='\e[91m \e[1m'
