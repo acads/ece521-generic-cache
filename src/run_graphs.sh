@@ -14,9 +14,8 @@ RED_COLOR='\e[91m \e[1m'
 NO_COLOR='\e[0m'
 
 sa="1"
-sa_iter="2"
-#sa_iter="-1"
-SA_LIMIT="4"
+sa_iter="-1"
+SA_LIMIT="8"
 
 csize="0"
 csize_iter="6" 
@@ -35,10 +34,9 @@ function run_tests()
     while [ $sa -lt $SA_LIMIT ]; do
         sa=$((2**($sa_iter+1)))
 
-        echo "# CACHE PERFORMANCE TABLE: L1 SIZE vs. MISS RATE" >> $2_$sa
-        echo "# BLOCK SIZE: $BSIZE" >> $2_$sa
-        echo "# SET ASSOCIATIVITY: $sa" >> $2_$sa
-        echo " " >> $2_$sa
+#echo "# CACHE PERFORMANCE TABLE: L1 SIZE vs. MISS RATE" >> $2_$sa
+#echo "# BLOCK SIZE: $BSIZE" >> $2_$sa
+#echo "# SET ASSOCIATIVITY: $sa" >> $2_$sa
         echo "# $3" >> $2_$sa
 
         while [ $csize -lt $CSIZE_LIMIT ]; do
@@ -54,13 +52,14 @@ function run_tests()
         csize="0"
         csize_iter="6"
         sa_iter=$[$sa_iter+1]
+
+        echo "# $3" >> $2_$sa
+        echo " " >> $2_$sa
+        echo " " >> $2_$sa
     done
 
-    echo "# $3" >> $2_$sa
-    echo " " >> $2_$sa
-    echo " " >> $2_$sa
     sa="1"
-    sa_iter="2"
+    sa_iter="-1"
     csize="0"
     csize_iter="6"
 }
@@ -71,19 +70,16 @@ run_tests gcc_trace.txt $OFILE gcc
 echo -e "${RED_COLOR}runs for gcc_trace.txt.. stop${NO_COLOR}"
 echo " "
 
-echo "runs for go_trace.txt.. start"
 echo -e "${RED_COLOR}runs for go_trace.txt.. start${NO_COLOR}"
 run_tests go_trace.txt $OFILE go
 echo -e "${RED_COLOR}runs for go_trace.txt.. stop${NO_COLOR}"
 echo " "
 
-echo "runs for perl_trace.txt.. start"
 echo -e "${RED_COLOR}runs for perl_trace.txt.. start${NO_COLOR}"
 run_tests perl_trace.txt $OFILE perl
 echo -e "${RED_COLOR}runs for perl_trace.txt.. stop${NO_COLOR}"
 echo " "
 
-echo -e "${RED_COLOR}runs for vortex_trace.txt.. start${NO_COLOR}"
 run_tests vortex_trace.txt $OFILE vortex
 echo -e "${RED_COLOR}runs for vortex_trace.txt.. stop${NO_COLOR}"
 echo " "
