@@ -77,7 +77,6 @@ cache_print_sim_stats(cache_generic_t *cache)
 
     uint32_t        l2_num_reads = 0;
     uint32_t        l2_num_writes = 0;
-    uint32_t        l2_num_misses = 0;
     uint32_t        l2_num_read_misses = 0;
     uint32_t        l2_num_write_misses = 0;
     uint32_t        l2_num_write_backs = 0;
@@ -90,7 +89,6 @@ cache_print_sim_stats(cache_generic_t *cache)
 
     double          miss_penalty = 0.0;
     double          avg_access_time = 0.0;
-    double          total_access_time = 0.0;
     double          b_512kb = (512 * 1024);
     uint32_t        total_traffic = 0;
 
@@ -128,9 +126,10 @@ cache_print_sim_stats(cache_generic_t *cache)
         l2_num_read_misses = l2_stats->num_read_misses;
         l2_num_writes = l2_stats->num_writes;
         l2_num_write_misses = l2_stats->num_write_misses;
-        l2_num_misses = l2_stats->num_read_misses + l2_stats->num_write_misses;
         l2_num_write_backs = l2_stats->num_write_backs;
         l2_miss_penalty = (20 + (0.5 * (((double) l2->blk_size) / 16)));
+
+        /* Only read misses are to be accounted for. */
         l2_miss_rate =
             ((double) (l2_stats->num_read_misses) /
                 (double) (l2_stats->num_reads));
@@ -150,9 +149,6 @@ cache_print_sim_stats(cache_generic_t *cache)
     l1_hit_time = (0.25 + (2.5 * (((double) cache->size) / b_512kb)) + (0.025 *
             (((double) cache->blk_size) / 16)) + (0.025 * cache->set_assoc));
     miss_penalty = (20 + (0.5 * (((double) cache->blk_size) / 16)));
-    total_access_time =
-        (((l1_stats->num_reads + l1_stats->num_writes) * l1_hit_time) +
-         ((l2_num_misses) * miss_penalty));
 
     if (l2_present) {
         total_traffic = (l2_stats->num_read_misses + 
